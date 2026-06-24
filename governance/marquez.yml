@@ -1,0 +1,25 @@
+server:
+  applicationConnectors:
+    - type: http
+      port: 5000
+  adminConnectors:
+    - type: http
+      port: 5001
+
+db:
+  driverClass: org.postgresql.Driver
+  url: jdbc:postgresql://postgres-marquez:5432/marquez
+  user: marquez
+  password: marquez123
+
+# Migre automatiquement le schéma Marquez au démarrage
+migrateOnStartup: true
+
+# Namespaces pré-déclarés (un par couche de la médaille)
+tags:
+  - name: bronze
+    description: "Données brutes ingérées sans transformation (CSV, JSON, GeoJSON)"
+  - name: silver
+    description: "Données nettoyées, validées et converties en Parquet"
+  - name: gold
+    description: "Données agrégées, data marts matérialisés et GeoJSON enrichi"

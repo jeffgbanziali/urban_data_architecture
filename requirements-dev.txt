@@ -1,0 +1,4 @@
+# Dépendances nécessaires pour exécuter les tests en local (pytest tests/)
+# en plus de celles déjà listées dans api/requirements.txt et airflow/requirements.txt.
+pytest==8.3.3
+httpx==0.27.2

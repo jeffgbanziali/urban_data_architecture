@@ -1,0 +1,318 @@
+name: urban-data-explorer
+
+x-airflow-common: &airflow-common
+  build:
+    context: ./airflow
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__WEBSERVER__SECRET_KEY: "urban-data-explorer-secret"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+    # Gouvernance de données — émission automatique de lineage OpenLineage
+    # vers Marquez (UI : http://localhost:3000) à chaque DAG run.
+    AIRFLOW__OPENLINEAGE__TRANSPORT: '{"type": "http", "url": "http://marquez:5000", "endpoint": "/api/v1/lineage"}'
+    AIRFLOW__OPENLINEAGE__NAMESPACE: urban-data-explorer
+    MINIO_ENDPOINT: minio:9000
+    MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+    MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    POSTGRES_GOLD_HOST: postgres-gold
+    POSTGRES_GOLD_DB: ${POSTGRES_GOLD_DB:-gold}
+    POSTGRES_GOLD_USER: ${POSTGRES_GOLD_USER:-gold_user}
+    POSTGRES_GOLD_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    # Permet à pipeline/silver et pipeline/gold d'importer minio_client.py,
+    # geo_utils.py et pipeline_reporter.py qui vivent dans pipeline/bronze/.
+    PYTHONPATH: /opt/airflow/pipeline/bronze
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./pipeline/bronze:/opt/airflow/pipeline/bronze
+    - ./pipeline/silver:/opt/airflow/pipeline/silver
+    - ./pipeline/gold:/opt/airflow/pipeline/gold
+  depends_on:
+    postgres-airflow:
+      condition: service_healthy
+
+services:
+  # ============ DATA LAKE (zones Bronze / Silver / Gold = buckets MinIO) ============
+  # Bronze : fichiers bruts horodatés (CSV, JSON, GeoJSON, Parquet)
+  # Silver : Parquet nettoyés et validés par schéma
+  # Gold   : Parquet agrégés + GeoJSON enrichi pour l'API
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: minio
+    ports:
+      - "9000:9000"   # API S3 (boto3, mc)
+      - "9001:9001"   # Console web MinIO
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [urban-net]
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-08T09-37-26Z
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      mc mb -p local/bronze;
+      mc mb -p local/silver;
+      mc mb -p local/gold;
+      mc anonymous set download local/gold;
+      exit 0;
+      "
+    networks: [urban-net]
+
+  # ============ BASE GOLD (PostgreSQL — analytics + data marts + temps réel) ============
+  # Une seule base PostgreSQL pour :
+  #   - les tables batch (prix_m2_arrondissement, indicateurs_socio, schéma étoile)
+  #   - les data marts matérialisés (mart_marche_immobilier, mart_mobilite, mart_qualite_vie)
+  #   - les tables temps réel (qualite_air_temps_reel, velib_*)
+  #   - les rapports pipeline JSONB (pipeline_rapports — ex-MongoDB)
+  #   - les tables applicatives (users, biens avec JSONB, favoris)
+  postgres-gold:
+    image: postgres:16-alpine
+    container_name: postgres-gold
+    environment:
+      POSTGRES_DB: ${POSTGRES_GOLD_DB:-gold}
+      POSTGRES_USER: ${POSTGRES_GOLD_USER:-gold_user}
+      POSTGRES_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_gold_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_GOLD_USER:-gold_user} -d ${POSTGRES_GOLD_DB:-gold}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [urban-net]
+
+  # ============ BASE METADATA AIRFLOW (technique, séparée du Gold métier) ============
+  postgres-airflow:
+    image: postgres:16-alpine
+    container_name: postgres-airflow
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - postgres_airflow_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [urban-net]
+
+  # ============ STREAMING TEMPS RÉEL ============
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [urban-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks: [urban-net]
+
+  kafka-producer:
+    build:
+      context: ./streaming
+    container_name: kafka-producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      WAQI_API_TOKEN: ${WAQI_API_TOKEN:-}
+      AIR_QUALITY_POLL_INTERVAL_S: ${AIR_QUALITY_POLL_INTERVAL_S:-300}
+    command: ["python", "producer_realtime.py"]
+    networks: [urban-net]
+
+  kafka-consumer:
+    build:
+      context: ./streaming
+    container_name: kafka-consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-gold:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      POSTGRES_GOLD_HOST: postgres-gold
+      POSTGRES_GOLD_DB: ${POSTGRES_GOLD_DB:-gold}
+      POSTGRES_GOLD_USER: ${POSTGRES_GOLD_USER:-gold_user}
+      POSTGRES_GOLD_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
+    command: ["python", "consumer_to_gold.py"]
+    networks: [urban-net]
+
+  # ============ ORCHESTRATION ============
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - "airflow db migrate && airflow users create --username admin --password admin --firstname Jeff --lastname Urban --role Admin --email admin@example.com || true"
+    networks: [urban-net]
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks: [urban-net]
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks: [urban-net]
+
+  # ============ GOUVERNANCE DE DONNÉES (Marquez / OpenLineage) ============
+  # Marquez trace automatiquement la lignée des données :
+  #   ingestion_bronze DAG → bronze/dvf_2024.csv
+  #   transform_silver DAG → silver/dvf_2024.parquet
+  #   aggregate_gold DAG   → gold/prix_m2_arrondissement, mart_marche_immobilier …
+  # UI disponible sur http://localhost:3000 — pas de compte nécessaire.
+  # Airflow émet les événements OpenLineage via le provider configuré ci-dessus.
+  postgres-marquez:
+    image: postgres:14-alpine
+    container_name: postgres-marquez
+    environment:
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez123
+    volumes:
+      - marquez_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marquez"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [urban-net]
+
+  marquez:
+    image: marquezproject/marquez:0.47.0
+    container_name: marquez
+    ports:
+      - "5000:5000"   # API REST OpenLineage
+      - "5001:5001"   # Admin (health, metrics)
+    volumes:
+      - ./governance/marquez.yml:/usr/src/app/marquez.yml
+    environment:
+      MARQUEZ_CONFIG: /usr/src/app/marquez.yml
+    depends_on:
+      postgres-marquez:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/namespaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks: [urban-net]
+
+  marquez-web:
+    image: marquezproject/marquez-web:0.47.0
+    container_name: marquez-web
+    ports:
+      - "3000:3000"   # UI lineage (graphe Bronze → Silver → Gold)
+    environment:
+      MARQUEZ_HOST: marquez
+      MARQUEZ_PORT: 5000
+    depends_on:
+      - marquez
+    networks: [urban-net]
+
+  # ============ API BACKEND (sert les données Gold au frontend) ============
+  api:
+    build:
+      context: ./api
+    container_name: api
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_GOLD_HOST: postgres-gold
+      POSTGRES_GOLD_DB: ${POSTGRES_GOLD_DB:-gold}
+      POSTGRES_GOLD_USER: ${POSTGRES_GOLD_USER:-gold_user}
+      POSTGRES_GOLD_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      API_KEY: ${API_KEY:-demo-key-change-me}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+    depends_on:
+      postgres-gold:
+        condition: service_healthy
+    networks: [urban-net]
+
+  # ============ FRONTEND (site agence React/Vite + explorateur de données) ============
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
+    container_name: frontend
+    ports:
+      - "8501:80"
+    depends_on: [api]
+    networks: [urban-net]
+
+networks:
+  urban-net:
+    driver: bridge
+
+volumes:
+  minio_data:
+  postgres_gold_data:
+  postgres_airflow_data:
+  marquez_db_data:

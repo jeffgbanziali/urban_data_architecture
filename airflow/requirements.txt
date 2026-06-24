@@ -1,0 +1,9 @@
+boto3==1.34.162
+botocore==1.34.162
+pandas==2.2.2
+pyarrow==17.0.0
+requests==2.32.3
+psycopg2-binary==2.9.9
+shapely==2.0.6
+# Gouvernance de données : émission automatique de lineage OpenLineage vers Marquez
+apache-airflow-providers-openlineage==1.8.0

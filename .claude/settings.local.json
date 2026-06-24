@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(curl -s --max-time 20 \"https://data.ratp.fr/api/explore/v2.1/catalog/datasets/positions-geographiques-des-stations-du-reseau-ratp/exports/csv\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Pret Jeff\\\\Documents\\\\urban-data-explorer\"; $env:PATH = \"$env:PATH;C:\\\\Users\\\\Pret Jeff\\\\AppData\\\\Roaming\\\\Python\\\\Python314\\\\Scripts\"; python -m pytest tests/test_transform.py tests/test_api.py -v 2>&1 | Select-Object -Last 60)",
+      "PowerShell(cd \"c:\\\\Users\\\\Pret Jeff\\\\Documents\\\\urban-data-explorer\"; pip install boto3 -q 2>&1 | Select-Object -Last 5; $env:PATH = \"$env:PATH;C:\\\\Users\\\\Pret Jeff\\\\AppData\\\\Roaming\\\\Python\\\\Python314\\\\Scripts\"; python -m pytest tests/test_transform.py tests/test_api.py -v 2>&1 | Select-Object -Last 60)",
+      "PowerShell(pip install asyncpg -q 2>&1 | Select-Object -Last 5; $env:PATH = \"$env:PATH;C:\\\\Users\\\\Pret Jeff\\\\AppData\\\\Roaming\\\\Python\\\\Python314\\\\Scripts\"; cd \"c:\\\\Users\\\\Pret Jeff\\\\Documents\\\\urban-data-explorer\"; python -m pytest tests/test_transform.py tests/test_api.py -v 2>&1 | Select-Object -Last 40)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Pret Jeff\\\\Documents\\\\urban-data-explorer\\\\docs\")",
+      "Bash(docker compose *)"
+    ]
+  }
+}

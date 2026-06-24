@@ -1,0 +1,5 @@
+kafka-python==2.0.2
+SQLAlchemy==2.0.32
+psycopg2-binary==2.9.9
+requests==2.32.3
+shapely==2.0.6

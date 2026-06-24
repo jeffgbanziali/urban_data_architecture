@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import 'leaflet/dist/leaflet.css';
+
+@theme {
+  /* Palette "agence immobilière parisienne" : pierre de taille, zinc, terre cuite. */
+  --color-cream: #F6F1E7;
+  --color-cream-dark: #EFE7D8;
+  --color-ink: #1C2E4A;
+  --color-ink-light: #2E456B;
+  --color-terracotta: #C1502D;
+  --color-terracotta-light: #D98052;
+  --color-verdigris: #4F7A6F;
+  --color-hairline: #DED5C2;
+
+  --font-display: "Oswald", sans-serif;
+  --font-body: "Public Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+.font-mono-data {
+  font-family: var(--font-mono);
+}
+

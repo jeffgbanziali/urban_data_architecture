@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Documentation — Urban Immo / Urban Data Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F6F1E7; --cream-dark: #EFE7D8; --ink: #1C2E4A; --terracotta: #C1502D; --verdigris: #4F7A6F; --hairline: #DED5C2;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background: var(--cream); color:#2A2722; font-family:"Public Sans",sans-serif; line-height:1.55; }
+  header { background: var(--ink); color: var(--cream); padding: 1.5rem 2rem; }
+  header h1 { font-family:"Oswald",sans-serif; text-transform:uppercase; margin:0; font-size:1.5rem; }
+  header p { margin: 0.3rem 0 0; color:#C7CEDB; font-size:0.85rem; }
+  .content { max-width: 880px; margin: 0 auto; padding: 2rem; }
+  h2 { font-family:"Oswald",sans-serif; text-transform:uppercase; color: var(--ink); margin-top: 2.5rem; font-size:1.1rem; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; font-size:0.9rem; }
+  th, td { border:1px solid var(--hairline); padding:0.5rem 0.7rem; text-align:left; }
+  th { background: var(--cream-dark); font-family:"Oswald",sans-serif; text-transform:uppercase; font-size:0.72rem; color: var(--ink); }
+  code { background: var(--cream-dark); padding:0.1rem 0.35rem; border-radius:4px; font-family:"IBM Plex Mono",monospace; font-size:0.85em; }
+  a { color: var(--terracotta); }
+  .back { display:inline-block; margin-top:1rem; font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Documentation</h1>
+  <p>Urban Immo — agence immobilière pilotée par la donnée (projet académique RNCP40875)</p>
+</header>
+
+<div class="content">
+  <a class="back" href="/">← Retour au site</a>
+
+  <h2 id="architecture">Vue d'ensemble de l'architecture</h2>
+  <ul>
+    <li><strong>Data Lake MinIO</strong> : zones <code>bronze</code> (brut, horodaté), <code>silver</code> (nettoyé, Parquet), <code>gold</code> (agrégé, dont un GeoJSON enrichi).</li>
+    <li><strong>PostgreSQL</strong> : base Gold (indicateurs, biens, utilisateurs, agrégats temps réel) avec contraintes d'intégrité et rôle en lecture seule pour l'API.</li>
+    <li><strong>Kafka</strong> : deux topics — <code>transactions.raw</code> (transactions immobilières) et <code>events.stream</code> (qualité de l'air quasi temps réel).</li>
+    <li><strong>Géocodage réel</strong> : adresses d'espaces verts géocodées via l'API BAN, puis rattachées à leur arrondissement par un vrai test point-in-polygon (Shapely) sur les géométries officielles OpenData Paris.</li>
+    <li><strong>Push temps réel sans polling</strong> : le consumer Kafka notifie PostgreSQL (<code>pg_notify</code>) après chaque événement ; l'API écoute (<code>LISTEN</code> via asyncpg) et relaie instantanément aux clients WebSocket.</li>
+    <li><strong>Airflow</strong> : orchestration des DAGs <code>ingestion_bronze → transform_silver → aggregate_gold</code>.</li>
+    <li><strong>FastAPI</strong> : API REST sécurisée (JWT, rôles client/employé/admin) documentée sur <a href="http://localhost:8000/docs">/docs</a>, incluant <code>GET /geo/arrondissements</code> qui ferme la boucle vers le frontend.</li>
+    <li><strong>Frontend React</strong> : vitrine agence (biens, favoris), espaces par rôle, et un explorateur de données branché sur l'API (carte choroplèthe sur géométries officielles, 6 indicateurs adossés à de vraies sources, sélecteur d'année pour le prix).</li>
+  </ul>
+
+  <h2 id="roles">Rôles et droits d'accès</h2>
+  <table>
+    <thead><tr><th>Rôle</th><th>Peut faire</th></tr></thead>
+    <tbody>
+      <tr><td>Client</td><td>Consulter les biens publics, gérer ses favoris, voir les tendances de prix de ses arrondissements favoris.</td></tr>
+      <tr><td>Employé</td><td>Tout ce que peut faire un client côté consultation, + créer/modifier des biens, accéder à l'explorateur de données complet.</td></tr>
+      <tr><td>Administrateur</td><td>Tout ce que peut faire un employé, + gérer les comptes utilisateurs (création, rôle, activation/désactivation), + supprimer des biens.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="methodologie">Méthodologie de préparation des données (C3.1)</h2>
+  <ol>
+    <li>Typage explicite des colonnes (dates, numériques, catégorielles).</li>
+    <li>Suppression des doublons sur la clé métier.</li>
+    <li>Imputation des valeurs manquantes par la médiane du groupe (arrondissement).</li>
+    <li>Filtrage des valeurs aberrantes (prix/m² hors de [1 000 € ; 30 000 €]).</li>
+    <li>Géocodage des adresses (espaces verts) via l'API BAN, puis résolution de l'arrondissement par point-in-polygon sur la géométrie officielle (pas une approximation par centroïde).</li>
+    <li>Validation de schéma avant promotion en zone Silver.</li>
+    <li>Rapport de qualité JSON versionné à chaque exécution (<code>s3://silver/_reports/quality/</code>), incluant le taux de réussite du géocodage.</li>
+  </ol>
+
+  <h2 id="indicateurs">Indicateurs de l'explorateur de données</h2>
+  <p>L'explorateur n'expose que des indicateurs adossés à une vraie source publique — c'est un choix de qualité : moins d'indicateurs mais tous vérifiables.</p>
+  <table>
+    <thead><tr><th>Indicateur</th><th>Source réelle</th></tr></thead>
+    <tbody>
+      <tr><td>Prix au m² (par année)</td><td>DVF / geo-dvf — data.gouv.fr</td></tr>
+      <tr><td>Variation annuelle du prix</td><td>Calculée depuis les DVF</td></tr>
+      <tr><td>Population</td><td>INSEE — "Communes et villes de France" (data.gouv.fr)</td></tr>
+      <tr><td>Densité (hab/km²)</td><td>INSEE — même fichier</td></tr>
+      <tr><td>Qualité de l'air</td><td>WAQI via Kafka <code>events.stream</code> (temps réel)</td></tr>
+      <tr><td>Espaces verts géocodés</td><td>OpenData Paris + API BAN + point-in-polygon</td></tr>
+    </tbody>
+  </table>
+  <p>Les indicateurs précédemment synthétiques (<code>delits_pour_1000_hab</code>, <code>revenu_median_annuel</code>, <code>taux_chomage</code>, <code>score_transport</code>, <code>satisfaction_vie</code>, etc.) ont été <strong>supprimés entièrement</strong> plutôt que conservés avec des valeurs inventées.</p>
+
+  <h2 id="limites">Limites et améliorations possibles</h2>
+  <ul>
+    <li>L'explorateur de données est branché sur l'API (<code>GET /geo/arrondissements</code>) ; reste une évolution possible : positionner individuellement les espaces verts géocodés sur la carte (seul leur comptage par arrondissement est exploité pour le moment).</li>
+    <li><code>delits_pour_1000_hab</code> : vraie source SSMSI disponible sur data.gouv.fr (fichier national ~38 Mo, schéma complexe) — à brancher dans une itération future.</li>
+    <li><code>score_transport</code> : l'API RATP Open Data référencée a été dépréciée (dataset supprimé) — à rebrancher si une nouvelle URL officielle est publiée.</li>
+    <li><code>part_logements_sociaux_pct</code>, <code>revenu_median_annuel</code> : disponibles via les recensements INSEE (RP), mais pas encore intégrés dans le pipeline.</li>
+    <li>Les sources espaces verts (OpenData Paris) et DVF (geo-dvf, data.gouv.fr) utilisent leur vrai format en priorité, avec repli automatique sur des données synthétiques DVF si le téléchargement échoue.</li>
+    <li>Le push WebSocket ouvre une connexion PostgreSQL dédiée par client (<code>LISTEN</code>) ; un usage à très forte concurrence préfèrerait un listener interne unique avec fan-out.</li>
+    <li>Authentification par clé secrète unique côté JWT (pas de rotation de clé ni de refresh token) — suffisant pour la démonstration.</li>
+    <li>Limitation de débit de l'API en mémoire, non partagée entre plusieurs instances.</li>
+  </ul>
+
+  <h2 id="competences">Correspondance avec le référentiel de compétences</h2>
+  <table>
+    <thead><tr><th>Compétence</th><th>Preuve dans le projet</th></tr></thead>
+    <tbody>
+      <tr><td>C1.1 — Base relationnelle</td><td><code>sql/01_init_gold.sql</code>, <code>sql/02_init_auth.sql</code></td></tr>
+      <tr><td>C1.2 — Base non relationnelle</td><td>MinIO (S3) pour bronze/silver/gold</td></tr>
+      <tr><td>C1.3 — Data Lake sécurisé multi-sources</td><td><code>ingestion/download_sources.py</code> (DVF, INSEE, Airparif, SSMSI, OpenData Paris)</td></tr>
+      <tr><td>C1.4 — Scalabilité/résilience</td><td>Sources indépendantes, fallback synthétique et géométrique, retries Airflow</td></tr>
+      <tr><td>C2.1 — API interopérable et sécurisée</td><td>JWT, rôles, OpenAPI, CORS, rate limiting</td></tr>
+      <tr><td>C2.2 — Streaming</td><td>Kafka producer/consumer sur 2 topics + push PostgreSQL <code>LISTEN</code>/<code>NOTIFY</code></td></tr>
+      <tr><td>C2.3 — Transformation multi-sources</td><td><code>transform/clean_silver.py</code> (dont géocodage réel), <code>aggregate/aggregate_gold.py</code></td></tr>
+      <tr><td>C2.4 — Pipelines mesurés</td><td>Rapports JSON horodatés, taux de réussite du géocodage</td></tr>
+      <tr><td>C3.1 — Préparation des données</td><td>Nettoyage documenté étape par étape, géocodage + point-in-polygon</td></tr>
+      <tr><td>C3.2 — Dashboard interactif inclusif</td><td>Explorateur de données branché sur l'API, espaces par rôle</td></tr>
+      <tr><td>C3.3 — Analyse exploratoire</td><td>Comparaisons par arrondissement, variations annuelles, 6 indicateurs Gold (sources réelles uniquement)</td></tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>
