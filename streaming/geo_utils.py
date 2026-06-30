@@ -1,18 +1,4 @@
-"""
-ingestion/geo_utils.py
-------------------------
-Utilitaires géographiques partagés par les couches Silver et Gold.
 
-Contrairement à une approximation par centroïde le plus proche, on utilise ici
-un vrai test point-in-polygon (Shapely) sur les géométries officielles des 20
-arrondissements parisiens (source : OpenData Paris, fichier déjà téléchargé
-par `download_sources.py` en zone bronze ; une copie de référence est aussi
-versionnée dans `ingestion/reference/arrondissements.geojson` pour garantir le
-fonctionnement même si la source réseau est indisponible — même logique de
-résilience que `generate_sample_data.py`).
-
-Point-in-polygon sur les géométries officielles plutôt qu'une approximation par centroïde.
-"""
 import json
 import logging
 from functools import lru_cache
@@ -27,14 +13,7 @@ REFERENCE_GEOJSON_PATH = Path(__file__).parent / "reference" / "arrondissements.
 
 @lru_cache(maxsize=1)
 def _load_arrondissement_polygons(geojson_bytes: bytes | None = None):
-    """
-    Charge les polygones des 20 arrondissements une seule fois (mise en cache).
-
-    Si `geojson_bytes` est fourni (ex. lu depuis la zone bronze MinIO, donc
-    potentiellement plus à jour), on l'utilise. Sinon on retombe sur la copie
-    de référence versionnée avec le code — résilience identique au reste du
-    pipeline.
-    """
+   
     if geojson_bytes is not None:
         data = json.loads(geojson_bytes)
     else:
@@ -56,11 +35,7 @@ def _load_arrondissement_polygons(geojson_bytes: bytes | None = None):
 
 
 def find_arrondissement(lon: float, lat: float, geojson_bytes: bytes | None = None) -> int | None:
-    """
-    Retourne le numéro d'arrondissement (1-20) contenant le point (lon, lat),
-    ou None si le point est hors de Paris (vrai test géométrique, pas une
-    approximation par distance).
-    """
+    
     point = Point(lon, lat)
     for arr, polygon in _load_arrondissement_polygons(geojson_bytes):
         if polygon.contains(point):

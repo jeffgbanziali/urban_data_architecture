@@ -1,23 +1,3 @@
-"""
-api/app/auth.py
-------------------
-Authentification par JWT et contrôle d'accès basé sur les rôles
-(client / employe / admin).
-
-Choix techniques :
-  - Hash des mots de passe avec `bcrypt` directement (plutôt que passlib, qui
-    a des soucis de compatibilité avec les versions récentes de bcrypt) :
-    plus simple, moins de dépendances, même garantie de sécurité.
-  - JWT signés HS256 via PyJWT, avec expiration courte configurable
-    (JWT_EXPIRE_MINUTES, 8h par défaut — une journée de travail).
-  - `get_current_user` décode le token et recharge l'utilisateur depuis la
-    base à chaque requête (pas seulement depuis le contenu du token), pour
-    qu'une désactivation de compte par un admin soit immédiatement effective.
-  - `require_role(...)` est un facteur de dépendances FastAPI réutilisable
-    pour protéger un endpoint à une liste de rôles autorisés.
-
-Gère l'authentification JWT et le contrôle d'accès pour les 3 profils utilisateurs.
-"""
 import os
 from datetime import datetime, timedelta, timezone
 

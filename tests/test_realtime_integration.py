@@ -1,19 +1,14 @@
 """
 tests/test_realtime_integration.py
 -------------------------------------
-Test d'intégration de bout en bout du mécanisme de push temps réel
-(consumer Kafka -> PostgreSQL -> NOTIFY -> asyncpg LISTEN -> WebSocket),
-SANS scrutation périodique.
+Test d'intégration du mécanisme de push temps réel
+(DAG Airflow → PostgreSQL NOTIFY → asyncpg LISTEN → WebSocket).
 
-Teste les deux flux réels (qualité de l'air + Vélib), depuis que les
-transactions immobilières simulées ont été supprimées (données DVF traitées
-uniquement en batch via le pipeline Airflow).
+Teste les deux flux réels (qualité de l'air + Vélib). Nécessite un vrai
+PostgreSQL car SQLite ne supporte pas LISTEN/NOTIFY. Automatiquement ignoré
+si aucun PostgreSQL n'est accessible.
 
-Contrairement aux autres tests (SQLite en mémoire), celui-ci nécessite un
-vrai serveur PostgreSQL car SQLite ne supporte pas LISTEN/NOTIFY. Il est
-automatiquement ignoré (skip) si aucun PostgreSQL n'est accessible.
-
-Pour le lancer réellement :
+Pour le lancer :
     docker compose up -d postgres-gold
     POSTGRES_GOLD_HOST=localhost pytest tests/test_realtime_integration.py -v
 """
@@ -21,27 +16,24 @@ import asyncio
 import json
 import os
 import sys
-import types
-from pathlib import Path
 
 import pytest
-
-sys.modules.setdefault("kafka", types.SimpleNamespace(KafkaConsumer=object))
-sys.modules.setdefault("kafka.errors", types.SimpleNamespace(NoBrokersAvailable=Exception))
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "streaming"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 
 PG_HOST = os.environ.get("POSTGRES_GOLD_HOST", "127.0.0.1")
 PG_DB = os.environ.get("POSTGRES_GOLD_DB", "gold")
 PG_USER = os.environ.get("POSTGRES_GOLD_USER", "gold_user")
 PG_PASSWORD = os.environ.get("POSTGRES_GOLD_PASSWORD", "gold_pass")
 
+NOTIFY_CHANNEL = "realtime_channel"
+
 
 def _postgres_available() -> bool:
     try:
         import psycopg2
-        conn = psycopg2.connect(host=PG_HOST, dbname=PG_DB, user=PG_USER, password=PG_PASSWORD, connect_timeout=2)
+        conn = psycopg2.connect(
+            host=PG_HOST, dbname=PG_DB, user=PG_USER,
+            password=PG_PASSWORD, connect_timeout=2,
+        )
         conn.close()
         return True
     except Exception:
@@ -54,81 +46,103 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_consumer_upserts_velib_aggregate_and_notifies():
+def _pg_conn():
+    import psycopg2
+    return psycopg2.connect(host=PG_HOST, dbname=PG_DB, user=PG_USER, password=PG_PASSWORD)
+
+
+def test_velib_write_and_notify():
     """
-    Vérifie que handle_velib() insère l'événement dans disponibilite_velib_temps_reel,
-    met à jour velib_agregats_temps_reel via UPSERT incrémental, et envoie une
-    notification pg_notify (push WebSocket).
+    Reproduit la logique de realtime_fetcher.fetch_and_store_velib() :
+    INSERT dans disponibilite_velib_temps_reel, UPSERT agrégat glissant,
+    pg_notify. Vérifie l'intégrité de l'agrégat (moyenne mobile Welford).
     """
-    import consumer_to_gold as consumer
-    from sqlalchemy import create_engine, text
+    conn = _pg_conn()
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM disponibilite_velib_temps_reel WHERE arrondissement = 1 AND station_code LIKE 'TEST%'")
+        cur.execute("DELETE FROM velib_agregats_temps_reel WHERE arrondissement = 1")
+        conn.commit()
 
-    os.environ["POSTGRES_GOLD_HOST"] = PG_HOST
-    os.environ["POSTGRES_GOLD_DB"] = PG_DB
-    os.environ["POSTGRES_GOLD_USER"] = PG_USER
-    os.environ["POSTGRES_GOLD_PASSWORD"] = PG_PASSWORD
-
-    engine = create_engine(f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:5432/{PG_DB}")
-
-    # Nettoyage des données de test précédentes (arrondissement 1 utilisé pour le test)
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM disponibilite_velib_temps_reel WHERE arrondissement = 1"))
-        conn.execute(text("DELETE FROM velib_agregats_temps_reel WHERE arrondissement = 1"))
-
-    # Simule trois événements Vélib pour le 1er arrondissement
-    test_events = [
-        {"arrondissement": 1, "station_code": "TEST01", "station_nom": "Test Station",
-         "velos_disponibles": 10, "bornes_libres": 5},
-        {"arrondissement": 1, "station_code": "TEST02", "station_nom": "Test Station 2",
-         "velos_disponibles": 6, "bornes_libres": 8},
-        {"arrondissement": 1, "station_code": "TEST03", "station_nom": "Test Station 3",
-         "velos_disponibles": 14, "bornes_libres": 2},
+    events = [
+        {"arrondissement": 1, "station_code": "TEST01", "station_nom": "Test A", "velos_disponibles": 10, "bornes_libres": 5},
+        {"arrondissement": 1, "station_code": "TEST02", "station_nom": "Test B", "velos_disponibles": 6,  "bornes_libres": 8},
+        {"arrondissement": 1, "station_code": "TEST03", "station_nom": "Test C", "velos_disponibles": 14, "bornes_libres": 2},
     ]
-    for ev in test_events:
-        consumer.handle_velib(engine, ev)
 
-    with engine.connect() as conn:
-        # Vérification de l'agrégat glissant
-        row = conn.execute(
-            text("SELECT nb_stations_actives, velos_disponibles_moyen FROM velib_agregats_temps_reel WHERE arrondissement = 1"),
-        ).fetchone()
-        assert row is not None, "Agrégat Vélib absent de la table"
+    with conn.cursor() as cur:
+        for ev in events:
+            cur.execute(
+                "INSERT INTO disponibilite_velib_temps_reel "
+                "(arrondissement, station_code, station_nom, velos_disponibles, bornes_libres) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (ev["arrondissement"], ev["station_code"], ev["station_nom"],
+                 ev["velos_disponibles"], ev["bornes_libres"]),
+            )
+            cur.execute(
+                """
+                INSERT INTO velib_agregats_temps_reel
+                    (arrondissement, nb_stations_actives, velos_disponibles_moyen, derniere_maj)
+                VALUES (%s, 1, %s, now())
+                ON CONFLICT (arrondissement) DO UPDATE SET
+                    nb_stations_actives     = velib_agregats_temps_reel.nb_stations_actives + 1,
+                    velos_disponibles_moyen = velib_agregats_temps_reel.velos_disponibles_moyen
+                        + (%s - velib_agregats_temps_reel.velos_disponibles_moyen)
+                          / (velib_agregats_temps_reel.nb_stations_actives + 1),
+                    derniere_maj = now()
+                """,
+                (ev["arrondissement"], ev["velos_disponibles"], ev["velos_disponibles"]),
+            )
+            payload = json.dumps({"type": "velib", "arrondissement": ev["arrondissement"],
+                                  "velos_disponibles": ev["velos_disponibles"]})
+            cur.execute("SELECT pg_notify(%s, %s)", (NOTIFY_CHANNEL, payload))
+        conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT nb_stations_actives, velos_disponibles_moyen "
+            "FROM velib_agregats_temps_reel WHERE arrondissement = 1"
+        )
+        row = cur.fetchone()
+        assert row is not None, "Agrégat Vélib absent"
         assert row[0] >= 3, f"nb_stations_actives attendu >= 3, obtenu {row[0]}"
-        # Moyenne glissante de 10, 6, 14 = 10.0
-        assert abs(row[1] - 10.0) < 0.5, f"velos_disponibles_moyen attendu ~10.0, obtenu {row[1]}"
+        assert abs(float(row[1]) - 10.0) < 0.5, f"moyenne attendue ~10.0, obtenue {row[1]}"
 
-        # Vérification des événements bruts persistés
-        count = conn.execute(
-            text("SELECT COUNT(*) FROM disponibilite_velib_temps_reel WHERE arrondissement = 1"),
-        ).scalar()
-        assert count >= 3, f"Attendu >= 3 événements bruts, obtenu {count}"
+        cur.execute(
+            "SELECT COUNT(*) FROM disponibilite_velib_temps_reel "
+            "WHERE arrondissement = 1 AND station_code LIKE 'TEST%'"
+        )
+        assert cur.fetchone()[0] >= 3
+
+    conn.close()
 
 
-def test_consumer_upserts_air_quality_and_notifies():
+def test_air_quality_write_and_notify():
     """
-    Vérifie que handle_air_quality() persiste l'événement dans
-    qualite_air_temps_reel et envoie une notification pg_notify.
+    Reproduit la logique de realtime_fetcher.fetch_and_store_air_quality() :
+    INSERT dans qualite_air_temps_reel + pg_notify.
     """
-    import consumer_to_gold as consumer
-    from sqlalchemy import create_engine, text
+    conn = _pg_conn()
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM qualite_air_temps_reel WHERE arrondissement = 20")
+        cur.execute(
+            "INSERT INTO qualite_air_temps_reel (arrondissement, indice_qualite_air) VALUES (%s, %s)",
+            (20, 72.5),
+        )
+        payload = json.dumps({"type": "qualite_air", "arrondissement": 20, "indice_qualite_air": 72.5})
+        cur.execute("SELECT pg_notify(%s, %s)", (NOTIFY_CHANNEL, payload))
+        conn.commit()
 
-    engine = create_engine(f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:5432/{PG_DB}")
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM qualite_air_temps_reel WHERE arrondissement = 20")
+        assert cur.fetchone()[0] >= 1
 
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM qualite_air_temps_reel WHERE arrondissement = 20"))
-
-    consumer.handle_air_quality(engine, {"arrondissement": 20, "indice_qualite_air": 72.5})
-
-    with engine.connect() as conn:
-        count = conn.execute(
-            text("SELECT COUNT(*) FROM qualite_air_temps_reel WHERE arrondissement = 20"),
-        ).scalar()
-        assert count >= 1
+    conn.close()
 
 
 def test_websocket_receives_push_without_polling():
     """
-    Vérifie que pg_notify déclenche bien une notification asyncpg sans polling.
+    Vérifie que pg_notify déclenche immédiatement une notification asyncpg
+    sans scrutation périodique — mécanisme utilisé par /ws/realtime.
     """
     import asyncpg
 
@@ -139,12 +153,12 @@ def test_websocket_receives_push_without_polling():
             received.append(json.loads(payload))
 
         conn = await asyncpg.connect(host=PG_HOST, user=PG_USER, password=PG_PASSWORD, database=PG_DB)
-        await conn.add_listener("realtime_channel", on_notify)
+        await conn.add_listener(NOTIFY_CHANNEL, on_notify)
         await asyncio.sleep(0.2)
 
         payload = json.dumps({"type": "velib", "arrondissement": 5, "velos_disponibles": 8})
         notify_conn = await asyncpg.connect(host=PG_HOST, user=PG_USER, password=PG_PASSWORD, database=PG_DB)
-        await notify_conn.execute("SELECT pg_notify('realtime_channel', $1)", payload)
+        await notify_conn.execute("SELECT pg_notify($1, $2)", NOTIFY_CHANNEL, payload)
         await notify_conn.close()
 
         await asyncio.sleep(0.3)

@@ -1,18 +1,22 @@
-"""
-api/app/main.py
------------------
-Point d'entrée FastAPI : sécurité, CORS, routeurs métier, /health et /docs.
-"""
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from app import mongo_client
 from app.routers import admin_pipeline, admin_users, auth, biens, comparaison, favoris, geo, marts, prix, realtime_ws
 
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await mongo_client.connect()
+    yield
+    await mongo_client.close()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -32,6 +36,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(
     title="Urban Immo / Urban Data Explorer API",
+    lifespan=lifespan,
     description="""
 API de l'agence immobilière Urban Immo — Urban Data Explorer.
 

@@ -1,9 +1,3 @@
-"""
-common/minio_client.py
-----------------------
-Wrapper boto3 pour MinIO. Centralise la connexion, le versioning horodaté
-et la gestion d'erreurs pour les trois couches bronze/silver/gold.
-"""
 import io
 import os
 import json

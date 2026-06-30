@@ -13,6 +13,8 @@ interface UrbanDataItem {
     nbStationsMetro: number;
     nbStationsVelib: number;
     tauxCriminalite: number;
+    pctLogementsSociaux: number;
+    pctAppartements: number;
 }
 
 type IndicatorId =
@@ -20,7 +22,8 @@ type IndicatorId =
     | "indiceQualiteAir" | "nbEspacesVerts"
     | "population" | "densitePopulation"
     | "nbStationsMetro" | "nbStationsVelib"
-    | "tauxCriminalite";
+    | "tauxCriminalite"
+    | "pctLogementsSociaux" | "pctAppartements";
 
 type Category = "logement" | "social" | "environnement" | "transport" | "securite";
 

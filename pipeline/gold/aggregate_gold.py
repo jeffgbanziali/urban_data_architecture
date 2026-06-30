@@ -1,22 +1,3 @@
-"""
-pipeline/gold/aggregate_gold.py
----------------------------------
-Couche GOLD du pipeline : lit les Parquet Silver, calcule les indicateurs métier
-et les écrit dans PostgreSQL + MinIO/gold.
-
-Tables produites :
-  - prix_m2_arrondissement  : table plate (rétrocompatibilité API)
-  - indicateurs_socio        : INSEE + WAQI + OpenData Paris
-  - dim_arrondissement, dim_temps, fait_prix_immobilier : schéma en étoile (C2.3)
-  - enriched_arrondissements.geojson : géométries + indicateurs -> explorateur
-
-Data marts rafraîchis après chaque run :
-  - mart_marche_immobilier  : prix, variations, segmentation marché
-  - mart_mobilite            : état Vélib par arrondissement
-  - mart_qualite_vie         : score de vie composite
-
-Métriques harmonisées (C1.3/C2.4) + rapport dans PostgreSQL pipeline_rapports (JSONB).
-"""
 import io
 import json
 import os
@@ -171,15 +152,41 @@ def build_indice_qualite_air_snapshot(engine) -> pd.DataFrame:
         return pd.DataFrame(columns=["arrondissement", "indice_qualite_air"])
 
 
+def build_rpls_logements_sociaux(client) -> pd.DataFrame:
+    """
+    Lit le Parquet Silver RPLS. Retourne nb_lls par arrondissement.
+    pct_logements_sociaux est calculé dans build_indicateurs_socio après
+    jointure avec la population INSEE (nb_lls / population * 100).
+    """
+    key = latest_parquet(client, "rpls_logements_sociaux")
+    if key is None:
+        return pd.DataFrame(columns=["arrondissement", "nb_lls"])
+    df = read_parquet_from_silver(client, key)
+    if "nb_lls" not in df.columns:
+        return pd.DataFrame(columns=["arrondissement", "nb_lls"])
+    return df[["arrondissement", "nb_lls"]]
+
+
+def build_insee_rp_logements(client) -> pd.DataFrame:
+    key = latest_parquet(client, "insee_rp_logements")
+    if key is None:
+        return pd.DataFrame(columns=["arrondissement", "pct_appartements", "type_dominant"])
+    df = read_parquet_from_silver(client, key)
+    cols = [c for c in ("arrondissement", "pct_appartements", "type_dominant") if c in df.columns]
+    return df[cols]
+
+
 def build_indicateurs_socio(client, engine) -> pd.DataFrame:
     """
-    Assemble les indicateurs socio-démographiques et de transport depuis leurs vraies sources :
-      - population, densite_hab_km2 → INSEE Populations Légales 2021
-      - indice_qualite_air          → WAQI via topic Kafka events.stream
-      - nb_espaces_verts            → OpenData Paris (point-in-polygon)
-      - taux_criminalite            → SSMSI / Ministère de l'Intérieur
-      - nb_stations_velib           → OpenData Paris Vélib' temps réel
-      - nb_stations_metro           → IDFM emplacement gares IDF (Metro + RER)
+    Assemble tous les indicateurs depuis leurs sources réelles :
+      - population, densite_hab_km2   → INSEE Populations Légales 2021
+      - indice_qualite_air            → WAQI + IDW pour les arrondissements sans station
+      - nb_espaces_verts              → OpenData Paris (point-in-polygon)
+      - taux_criminalite              → SSMSI / Ministère de l'Intérieur
+      - nb_stations_velib             → OpenData Paris Vélib' temps réel
+      - nb_stations_metro             → IDFM emplacement gares IDF (Metro + RER)
+      - pct_logements_sociaux         → RPLS 2023 (Ministère du Logement / SDES)
+      - pct_appartements, type_dominant → INSEE RP 2021
 
     Les champs manquants restent NULL — jamais remplacés par une valeur inventée.
     """
@@ -222,6 +229,27 @@ def build_indicateurs_socio(client, engine) -> pd.DataFrame:
         base = base.merge(df_metro, on="arrondissement", how="left")
     else:
         base["nb_stations_metro"] = pd.NA
+
+    df_rpls = build_rpls_logements_sociaux(client)
+    if not df_rpls.empty:
+        base = base.merge(df_rpls, on="arrondissement", how="left")
+        # pct = nb_lls / population totale * 100 (proxy fiable sans total logements)
+        if "population" in base.columns and "nb_lls" in base.columns:
+            base["pct_logements_sociaux"] = (
+                base["nb_lls"] / base["population"].replace(0, pd.NA) * 100
+            ).round(2)
+            base = base.drop(columns=["nb_lls"])
+        else:
+            base["pct_logements_sociaux"] = pd.NA
+    else:
+        base["pct_logements_sociaux"] = pd.NA
+
+    df_typo = build_insee_rp_logements(client)
+    if not df_typo.empty:
+        base = base.merge(df_typo, on="arrondissement", how="left")
+    else:
+        base["pct_appartements"] = pd.NA
+        base["type_dominant"] = pd.NA
 
     return base
 

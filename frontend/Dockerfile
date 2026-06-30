@@ -16,6 +16,8 @@ COPY . .
 # Pour changer l'URL de l'API sans rebuild, surcharger via un .env avant `docker compose build`.
 ARG VITE_API_BASE=http://localhost:8000
 ENV VITE_API_BASE=$VITE_API_BASE
+ARG VITE_MAPBOX_TOKEN=
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
 RUN npm run build
 
 # ---- Étape 2 : service statique ----

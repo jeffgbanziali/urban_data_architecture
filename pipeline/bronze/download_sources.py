@@ -1,20 +1,3 @@
-"""
-pipeline/bronze/download_sources.py
--------------------------------------
-Télécharge les sources de données ouvertes et les écrit en zone BRONZE de MinIO
-avec un préfixe horodaté (format : {source}/YYYY/MM/DD/HHMMSS/{source}.ext).
-
-Principe de résilience : chaque source est traitée de façon indépendante.
-Un échec réseau sur DVF ne bloque pas le téléchargement INSEE, ni les espaces
-verts. Le rapport JSON final reflète le taux de réussite réel.
-
-Après dépôt MinIO, le rapport est inséré dans la table PostgreSQL
-`pipeline_rapports` (JSONB) pour interrogation analytique via
-GET /admin/rapports-qualite sans parcourir les fichiers MinIO un par un.
-
-Métriques systématiquement calculées : duree_s, volume_octets, taux_succes_pct,
-debit_octets_par_s — harmonisées avec les couches Silver et Gold (C2.4).
-"""
 import gzip
 import io
 import time
@@ -83,6 +66,24 @@ SOURCES = {
         "url": "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/"
                "velib-disponibilite-en-temps-reel/exports/csv",
         "kind": "csv",
+    },
+
+    # ===== Logements sociaux (RPLS 2021 — data.gouv.fr / data.gouv.fr) =====
+    # Répertoire du Parc Locatif Social par commune — URL vérifiée accessible.
+    # Colonnes clés : COM (code commune ex. 75101), TOT21 (total LLS 2021).
+    "rpls_logements_sociaux": {
+        "url": "https://static.data.gouv.fr/resources/repertoire-des-logements-locatifs-des-bailleurs-sociaux-rpls-2021/20230309-150841/rpls-2021.csv",
+        "kind": "csv",
+    },
+
+    # ===== Typologie des logements (INSEE RP 2021 — IRIS, niveau infra-communal) =====
+    # Logements en 2021 au niveau IRIS. IRIS Paris : code 9 chiffres, les 5 premiers
+    # correspondent au code commune (75101-75120). Agrégation en Silver.
+    # Colonnes attendues : IRIS, P21_LOG, P21_MAISON, P21_APPART.
+    "insee_rp_logements": {
+        "url": "https://www.insee.fr/fr/statistiques/fichier/8268838/base-ic-logement-2021_csv.zip",
+        "kind": "zip_extract",
+        "file_in_zip": "base-ic-logement-2021.CSV",
     },
 
     # ===== Équipements et environnement =====

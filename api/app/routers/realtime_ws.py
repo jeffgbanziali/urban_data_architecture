@@ -1,20 +1,15 @@
 """
 api/app/routers/realtime_ws.py
 ---------------------------------
-Endpoint WebSocket /ws/realtime : relaie en temps réel les événements publiés
-par le consumer Kafka (disponibilité Vélib + mesures de qualité de
-l'air), SANS scrutation périodique (polling) de la base.
+Endpoint WebSocket /ws/realtime : relaie en temps réel les événements
+(disponibilité Vélib + qualité de l'air) sans scrutation périodique.
 
-Mécanisme : le consumer (streaming/consumer_to_gold.py) appelle `pg_notify()`
-juste après chaque insertion. Ici, on ouvre une connexion asyncpg dédiée par
-client WebSocket et on s'abonne (`LISTEN`) au même canal PostgreSQL. Dès
-qu'une notification arrive, elle est immédiatement relayée au client — c'est
-un vrai push, le délai entre l'événement Kafka et son affichage côté
-navigateur est de l'ordre de la milliseconde (latence réseau + DB), pas d'un
-intervalle de scrutation fixe.
+Mécanisme : le DAG Airflow realtime_stream appelle pg_notify() après chaque
+insertion. On ouvre une connexion asyncpg dédiée par client WebSocket et on
+s'abonne (LISTEN) au canal PostgreSQL — push dans la milliseconde.
 
-Limite : une connexion PostgreSQL dédiée par client WebSocket. À fort trafic,
-un fan-out interne serait préférable — acceptable pour l'échelle de ce projet.
+Limite : une connexion PostgreSQL par client WebSocket. À fort trafic un
+fan-out interne serait préférable — acceptable à cette échelle.
 """
 import asyncio
 import os

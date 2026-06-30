@@ -20,6 +20,8 @@ interface UrbanDataItem {
   nbStationsMetro: number;
   nbStationsVelib: number;
   tauxCriminalite: number;
+  pctLogementsSociaux: number;
+  pctAppartements: number;
 }
 
 type IndicatorId =
@@ -27,7 +29,8 @@ type IndicatorId =
   | "population" | "densitePopulation"
   | "indiceQualiteAir" | "nbEspacesVerts"
   | "nbStationsMetro" | "nbStationsVelib"
-  | "tauxCriminalite";
+  | "tauxCriminalite"
+  | "pctLogementsSociaux" | "pctAppartements";
 
 type Category = "logement" | "social" | "environnement" | "transport" | "securite";
 
@@ -52,7 +55,9 @@ const INDICATORS: IndicatorMeta[] = [
   { id: "nbEspacesVerts",   label: "Espaces verts",       unit: "lieux",         higherIsBetter: true,  color: "#16a34a", category: "environnement" },
   { id: "nbStationsMetro",  label: "Stations Métro/RER",  unit: "stations",      higherIsBetter: true,  color: "#0284c7", category: "transport" },
   { id: "nbStationsVelib",  label: "Stations Vélib",      unit: "stations",      higherIsBetter: true,  color: "#0891b2", category: "transport" },
-  { id: "tauxCriminalite",  label: "Criminalité",         unit: "faits/1000hab", higherIsBetter: false, color: "#be123c", category: "securite" },
+  { id: "tauxCriminalite",     label: "Criminalité",          unit: "faits/1000hab", higherIsBetter: false, color: "#be123c", category: "securite" },
+  { id: "pctLogementsSociaux", label: "Logements sociaux",    unit: "%",             higherIsBetter: true,  color: "#0f766e", category: "logement" },
+  { id: "pctAppartements",     label: "Part d'appartements",  unit: "%",             higherIsBetter: true,  color: "#6366f1", category: "logement" },
 ];
 
 const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
@@ -66,15 +71,17 @@ const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
 const AVAILABLE_YEARS = [2021, 2022, 2023, 2024, 2025];
 
 const GOLD_FIELD: Record<IndicatorId, string> = {
-  prixM2:            "prixM2",
-  variationPct:      "variationPct",
-  population:        "population",
-  densitePopulation: "densite_hab_km2",
-  indiceQualiteAir:  "indice_qualite_air",
-  nbEspacesVerts:    "nb_espaces_verts",
-  nbStationsMetro:   "nb_stations_metro",
-  nbStationsVelib:   "nb_stations_velib",
-  tauxCriminalite:   "taux_criminalite",
+  prixM2:               "prixM2",
+  variationPct:         "variationPct",
+  population:           "population",
+  densitePopulation:    "densite_hab_km2",
+  indiceQualiteAir:     "indice_qualite_air",
+  nbEspacesVerts:       "nb_espaces_verts",
+  nbStationsMetro:      "nb_stations_metro",
+  nbStationsVelib:      "nb_stations_velib",
+  tauxCriminalite:      "taux_criminalite",
+  pctLogementsSociaux:  "pct_logements_sociaux",
+  pctAppartements:      "pct_appartements",
 };
 
 const ARR_COLORS = ["#C1502D", "#1C2E4A", "#4F7A6F", "#f97316", "#7c3aed", "#16a34a"];
@@ -174,6 +181,7 @@ const Explorateur: React.FC = () => {
         indiceQualiteAir: rd("indiceQualiteAir"), nbEspacesVerts: rd("nbEspacesVerts"),
         nbStationsMetro: rd("nbStationsMetro"), nbStationsVelib: rd("nbStationsVelib"),
         tauxCriminalite: rd("tauxCriminalite"),
+        pctLogementsSociaux: rd("pctLogementsSociaux"), pctAppartements: rd("pctAppartements"),
       });
     }
     return map;

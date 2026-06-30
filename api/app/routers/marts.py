@@ -79,7 +79,7 @@ def get_mart_qualite_vie():
 def get_mart_mobilite():
     """
     Disponibilité Vélib en temps réel agrégée par arrondissement.
-    Mise à jour continue par le consumer Kafka (streaming/consumer_to_gold.py).
+    Mise à jour continue par le DAG Airflow realtime_stream (toutes les 3 min).
     """
     sql = """
         SELECT arrondissement, arrondissement_nom,

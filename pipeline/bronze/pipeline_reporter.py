@@ -1,15 +1,3 @@
-"""
-pipeline/bronze/pipeline_reporter.py
---------------------------------------
-Observabilité du pipeline : écrit les rapports qualité dans la table PostgreSQL
-`pipeline_rapports` (JSONB). Remplace mongo_pipeline.py — MongoDB est supprimé
-car PostgreSQL JSONB couvre exactement les mêmes besoins (stockage de documents
-semi-structurés, requêtes filtrées par stage/taux_succes, tri par horodatage)
-sans ajouter un quatrième système de persistence.
-
-Ne lève jamais d'exception : la perte d'un rapport de monitoring ne doit pas
-bloquer un run de pipeline réussi.
-"""
 import json
 import os
 
@@ -27,14 +15,7 @@ def _get_conn():
 
 
 def write_pipeline_report(stage: str, report: dict) -> None:
-    """
-    Insère un rapport qualité dans pipeline_rapports (PostgreSQL JSONB).
-
-    Les métriques scalaires sont extraites au niveau racine (colonnes indexées)
-    et le rapport complet est conservé dans payload JSONB pour requêtes ad hoc.
-    Le stage bronze niche ses métriques sous report["summary"] ; silver et gold
-    les exposent au niveau racine — les deux cas sont gérés ici.
-    """
+  
     summary = report.get("summary", report)
     try:
         conn = _get_conn()

@@ -1,17 +1,3 @@
-"""
-api/app/security.py
----------------------
-Sécurisation minimale mais réelle de l'API :
-  - Clé API obligatoire sur les endpoints sensibles (header X-API-Key),
-    vérifiée via une comparaison en temps constant (`secrets.compare_digest`)
-    pour limiter le risque de timing attack.
-  - CORS restreint au domaine du dashboard (configuré dans main.py).
-  - Limitation de débit basique en mémoire (fenêtre glissante par IP) pour
-    éviter un usage abusif de l'API publique de lecture.
-
-Limite : le rate-limiting est en mémoire (par instance). Une mise à l'échelle
-horizontale nécessiterait un store partagé (Redis).
-"""
 import os
 import secrets
 import time

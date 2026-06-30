@@ -8,10 +8,10 @@ streaming temps réel, orchestration Airflow, API sécurisée par rôles).
 ## Vue d'ensemble
 
 ```
-Sources ouvertes (DVF, INSEE, OpenData Paris, Airparif)
+Sources ouvertes (DVF, INSEE, OpenData Paris, WAQI, IDFM, SSMSI, RPLS)
         │
         ▼
-  Ingestion Python  ──────────────►  Zone BRONZE (MinIO, horodaté)
+  DAG ingestion_bronze ───────────►  Zone BRONZE (MinIO, horodaté)
         │                                   │
         │                            DAG transform_silver (Airflow)
         │                                   ▼
@@ -19,11 +19,11 @@ Sources ouvertes (DVF, INSEE, OpenData Paris, Airparif)
         │                                   │
         │                            DAG aggregate_gold (Airflow)
         │                                   ▼
-        │                       Zone GOLD : PostgreSQL + exports MinIO
+        │                       Zone GOLD : PostgreSQL + GeoJSON MinIO
         │                                   │
-  Kafka (transactions temps réel) ──────────┤
-        │                                   ▼
-        └──────────────────────────►   API FastAPI (JWT, rôles, OpenAPI)
+  DAG realtime_stream ──────────────────────┤  (*/3 min, 2 tâches parallèles)
+  WAQI + Vélib → pg_notify                  ▼
+                                       API FastAPI (JWT, rôles, OpenAPI)
                                             │
                                             ▼
                           Frontend React (vitrine agence + espaces par rôle
@@ -47,6 +47,7 @@ scripts SQL d'initialisation). Une fois prêt :
 | Console MinIO (data lake) | http://localhost:9001 | minioadmin / minioadmin123 |
 | Interface Airflow | http://localhost:8080 | admin / admin |
 | PostgreSQL Gold | localhost:5432 | gold_user / gold_pass |
+| MongoDB | localhost:27017 | mongo_user / mongo_pass |
 
 Pour déclencher manuellement le pipeline complet (sinon il tourne tous les
 jours à 2h du matin) :
@@ -89,10 +90,8 @@ pipeline/
   bronze/       Ingestion sources ouvertes -> zone Bronze (MinIO)
   silver/       Nettoyage, validation qualité, géocodage -> zone Silver
   gold/         Agrégations métier, schéma en étoile -> PostgreSQL Gold + MinIO
-streaming/      Kafka producer (qualité air WAQI + Vélib OpenData Paris temps réel)
-                consumer_to_gold.py (événement-par-événement) +
-                micro_batch_processor.py (fenêtres tumbling 10s)
-airflow/        DAGs d'orchestration (ingestion_bronze, transform_silver, aggregate_gold)
+streaming/      Code Kafka historique (conservé pour référence — remplacé par DAG realtime_stream)
+airflow/        DAGs d'orchestration (ingestion_bronze, transform_silver, aggregate_gold, realtime_stream)
 api/            API FastAPI (auth JWT, biens, favoris, admin, data Gold, MongoDB)
 frontend/       Site React (vitrine agence, espaces par rôle, explorateur de données)
 sql/            DDL PostgreSQL (schéma plat + étoile + tables streaming)
@@ -188,13 +187,11 @@ grille d'évaluation :
 
 ## Choix d'architecture et limites assumées
 
-Le pipeline suit fidèlement le schéma d'architecture cible : deux topics
-Kafka distincts (`transactions.raw` + `events.stream` pour la qualité de
-l'air), géocodage réel (API BAN) avec résolution d'arrondissement par
-point-in-polygon sur les géométries officielles, agrégats temps réel
-maintenus par UPSERT, push WebSocket par notification PostgreSQL
-(`LISTEN`/`NOTIFY`, sans scrutation périodique), et un export GeoJSON enrichi
-en zone Gold qui alimente directement l'explorateur de données du frontend.
+Le pipeline suit l'architecture Bronze/Silver/Gold complète avec géocodage
+réel (API BAN + point-in-polygon), agrégats temps réel maintenus par UPSERT,
+push WebSocket par notification PostgreSQL (`LISTEN`/`NOTIFY`, sans scrutation
+périodique), et un export GeoJSON enrichi en zone Gold qui alimente
+l'explorateur de données du frontend.
 
 `ingestion/download_sources.py` télécharge désormais de vraies sources
 ouvertes fonctionnelles, validées en déploiement réel (pas seulement en
@@ -223,22 +220,17 @@ l'explorateur — c'est un choix de qualité, pas une régression :
 | Variation annuelle du prix | Calculée depuis les DVF |
 | Population | INSEE — fichier "Communes et villes de France" (data.gouv.fr) |
 | Densité (hab/km²) | INSEE — même source |
-| Qualité de l'air | WAQI via le topic Kafka `events.stream` (temps réel) |
-| Espaces verts géocodés | OpenData Paris + géocodage API BAN + point-in-polygon |
-
-Les indicateurs qui existaient dans une version précédente sous forme
-synthétique (`delits_pour_1000_hab`, `revenu_median_annuel`, `taux_chomage`,
-`score_transport`, `satisfaction_vie`, etc.) ont été **supprimés entièrement**
-plutôt que conservés avec des valeurs inventées.
-
-Améliorations futures possibles (sources identifiées, non encore branchées) :
-- `delits_pour_1000_hab` : vraie source SSMSI disponible sur data.gouv.fr
-  (fichier national ~38 Mo, schéma complexe, non traité dans cette version).
-- `score_transport` / stations : l'API RATP Open Data qui était référencée
-  a été dépréciée (dataset supprimé) — à rebrancher si une nouvelle URL
-  officielle est publiée.
-- `part_logements_sociaux_pct` : données disponibles via les recensements
-  INSEE (RP), mais pas encore intégrées dans le pipeline.
+| Prix au m² (par année, 2021-2025) | DVF / geo-dvf, data.gouv.fr |
+| Variation annuelle du prix | Calculée depuis les DVF |
+| Logements sociaux (%) | RPLS 2021, data.gouv.fr |
+| Part d'appartements | INSEE RP 2021 logements IRIS, insee.fr |
+| Population | INSEE Populations légales 2021, data.gouv.fr |
+| Densité (hab/km²) | INSEE — même source |
+| Qualité de l'air | WAQI (stations réelles) + interpolation IDW pour arrondissements sans station |
+| Espaces verts | OpenData Paris + point-in-polygon |
+| Criminalité (faits/1000 hab) | SSMSI — Base communale délits, data.gouv.fr |
+| Stations Métro/RER | IDFM emplacement-des-gares-idf |
+| Stations Vélib | OpenData Paris Vélib disponibilité temps réel |
 
 Limites encore assumées :
 
@@ -276,7 +268,7 @@ http://localhost:8501/docs.html une fois le projet démarré.
 | C1.3 — Data Lake sécurisé multi-sources | `pipeline/bronze/download_sources.py`, buckets MinIO isolés ; métriques volume/débit sur chaque run |
 | C1.4 — Scalabilité / résilience | Sources indépendantes, fallback synthétique, retries Airflow, repli GeoJSON local, repli Vélib silencieux |
 | C2.1 — API interopérable et sécurisée | JWT + rôles, OpenAPI, CORS, quotas documentés ; tableau endpoints/rôles/quotas dans ce README |
-| C2.2 — Streaming temps réel + micro-batch | Kafka `events.stream` (qualité air) + `mobilite.raw` (Vélib réel) ; `consumer_to_gold.py` (événement) + `micro_batch_processor.py` (fenêtre 10s) |
+| C2.2 — Système distribué + streaming | DAG `realtime_stream` : 2 tâches parallèles (processus distincts, LocalExecutor) — WAQI + Vélib → PostgreSQL → pg_notify → WebSocket push temps réel |
 | C2.3 — Modélisation multidimensionnelle | `pipeline/silver/clean_silver.py` ; `pipeline/gold/aggregate_gold.py` : schéma en étoile `dim_arrondissement / dim_temps / fait_prix_immobilier` |
 | C2.4 — Pipelines mesurés | Rapports JSON horodatés (MinIO + MongoDB) avec `duree_s`, `volume_octets`, `debit_lignes_par_s`, `taux_succes_pct` à chaque étape |
 | C3.1 — Préparation/qualité des données | Nettoyage documenté étape par étape, rapports de qualité versionnés, interrogeables via `/admin/rapports-qualite` |

@@ -1,8 +1,3 @@
-"""
-api/app/schemas.py
---------------------
-Modèles Pydantic pour valider et documenter les réponses de l'API.
-"""
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -20,7 +15,7 @@ class IndicateurSocio(BaseModel):
     # Source : INSEE (communes_insee — data.gouv.fr)
     population: Optional[int] = None
     densite_hab_km2: Optional[int] = None
-    # Source : WAQI via Kafka events.stream (peut être None si pas encore de mesure)
+    # Source : WAQI via DAG realtime_stream (peut être None si pas encore de mesure)
     indice_qualite_air: Optional[float] = None
     # Source : OpenData Paris géocodé (API BAN + point-in-polygon)
     nb_espaces_verts: Optional[int] = None

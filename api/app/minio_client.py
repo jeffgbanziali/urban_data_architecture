@@ -1,12 +1,3 @@
-"""
-api/app/minio_client.py
---------------------------
-Client MinIO minimal côté API : lecture seule des exports de la zone Gold
-(ex. le GeoJSON enrichi produit par aggregate/aggregate_gold.py). On ne
-duplique pas tout `ingestion/minio_client.py` ici car l'API n'a besoin que de
-lire quelques objets, jamais d'écrire dans le data lake — principe du moindre
-privilège, comme pour le rôle SQL `gold_readonly`.
-"""
 import os
 
 import boto3

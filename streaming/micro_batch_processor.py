@@ -1,25 +1,3 @@
-"""
-streaming/micro_batch_processor.py
--------------------------------------
-Traitement par fenêtres tumbling de 10 secondes (micro-batch) sur le topic
-mobilite.raw (Vélib). Démontre explicitement le paradigme micro-batch, DISTINCT
-du traitement événement-par-événement de consumer_to_gold.py :
-
-  consumer_to_gold.py  → chaque événement Vélib déclenche immédiatement un
-                          INSERT + UPSERT agrégat glissant + pg_notify (push WS).
-                          Latence : millisecondes.
-
-  micro_batch_processor.py → accumule tous les messages d'une fenêtre de 10s,
-                              calcule nb_stations + velos_moyen PAR ARRONDISSEMENT
-                              sur la fenêtre, puis écrit UN agrégat par arr/fenêtre.
-                              Latence : 10 secondes (la durée de la fenêtre).
-
-Les deux coexistent et répondent à deux critères distincts de la grille C2.2.
-La table `agregats_micro_batch` est peuplée uniquement par ce script.
-
-Lancement : docker compose exec kafka-producer python micro_batch_processor.py
-(ou ajouter un service dédié dans docker-compose.yml si besoin en production)
-"""
 import json
 import os
 import time

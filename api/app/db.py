@@ -1,8 +1,3 @@
-"""
-api/app/db.py
---------------
-Connexion à PostgreSQL Gold pour l'API FastAPI, via un pool SQLAlchemy partagé.
-"""
 import os
 
 from sqlalchemy import create_engine

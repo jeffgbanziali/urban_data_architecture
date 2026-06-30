@@ -1,19 +1,3 @@
-"""
-pipeline/silver/clean_silver.py
----------------------------------
-Couche SILVER : lit les CSV/JSON bruts en bronze, les nettoie et les géocode,
-puis écrit des Parquet en silver.
-
-Transformations appliquées par source :
-  - DVF     : détection format, extraction arrondissement, calcul prix/m²,
-              filtre locaux habitation, dédup, imputation médiane, filtrage aberrants
-  - INSEE   : filtre typecom=ARM + code 751XX, extraction arrondissement
-  - EV réel : lecture coordonnées geom_x_y, point-in-polygon, repli code postal
-  - EV démo : géocodage BAN, point-in-polygon
-
-Métriques harmonisées (duree_s, volume_octets, debit_lignes_par_s, taux_succes_pct)
-écrites dans MinIO ET dans PostgreSQL pipeline_rapports (JSONB).
-"""
 import io
 import json
 import time
@@ -37,7 +21,7 @@ SILVER_BUCKET = "silver"
 
 PRIX_M2_MIN, PRIX_M2_MAX = 1000, 30000
 BAN_GEOCODE_URL = "https://api-adresse.data.gouv.fr/search/"
-GEOCODE_THROTTLE_S = 0.1  # courtoisie envers l'API publique BAN (pas de clé/quota officiel)
+GEOCODE_THROTTLE_S = 0.1  
 
 
 def latest_object_for_source(client, source_name: str) -> str | None:
@@ -692,6 +676,125 @@ def run_criminalite(client) -> dict:
     return {"source": source_name, "status": "success", "output": out_key, "quality": quality_report}
 
 
+def run_rpls_logements_sociaux(client) -> dict:
+    """
+    Nettoie le RPLS 2021 (par commune, colonnes COM + TOT21).
+    Filtre Paris (COM 75101-75120), retourne nb_lls par arrondissement.
+    Le % est calculé en Gold après jointure avec INSEE IRIS (total logements).
+    """
+    source_name = "rpls_logements_sociaux"
+    key = latest_object_for_source(client, source_name)
+    if key is None:
+        return {"source": source_name, "status": "skipped", "reason": "aucune donnée bronze trouvée"}
+
+    df = read_csv_from_bronze(client, key)
+    quality_report = {"rows_in": len(df), "issues": {}}
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    # COM = code commune (ex. "75101"), TOT21 = total LLS 2021
+    col_com = next((c for c in df.columns if c in ("com", "codgeo", "code_commune")), None)
+    col_tot = next((c for c in df.columns if c in ("tot21", "tot20", "loue")), None)
+
+    if col_com is None or col_tot is None:
+        return {"source": source_name, "status": "failed", "quality": {
+            "erreur": f"Colonnes COM/TOT21 introuvables (colonnes: {list(df.columns)[:15]})"
+        }}
+
+    df[col_com] = df[col_com].astype(str).str.strip().str.zfill(5)
+    df_paris = df[df[col_com].str.match(r"^751\d{2}$")].copy()
+    quality_report["lignes_paris"] = len(df_paris)
+
+    if df_paris.empty:
+        return {"source": source_name, "status": "failed", "quality": {"erreur": "Aucun code 75101-75120 trouvé"}}
+
+    df_paris["arrondissement"] = df_paris[col_com].str[-2:].astype(int)
+    df_paris["nb_lls"] = pd.to_numeric(df_paris[col_tot], errors="coerce").fillna(0).astype(int)
+
+    df_clean = df_paris[["arrondissement", "nb_lls"]]
+    quality_report["rows_out"] = len(df_clean)
+
+    out_key = f"{versioned_prefix(source_name)}/{source_name}.parquet"
+    put_dataframe_as_parquet(client, SILVER_BUCKET, out_key, df_clean)
+    quality_key = f"_reports/quality/{versioned_prefix(source_name)}.json"
+    quality_report["source_bronze_key"] = key
+    quality_report["output_silver_key"] = out_key
+    put_json(client, SILVER_BUCKET, quality_key, quality_report)
+
+    return {"source": source_name, "status": "success", "output": out_key, "quality": quality_report}
+
+
+def run_insee_rp_logements(client) -> dict:
+    """
+    Nettoie le fichier INSEE RP 2021 logements niveau IRIS.
+    Code IRIS 9 chiffres → 5 premiers = commune (75101-75120 pour Paris).
+    Agrège par arrondissement : P21_MAISON, P21_APPART → pct_appartements.
+    """
+    source_name = "insee_rp_logements"
+    key = latest_object_for_source(client, source_name)
+    if key is None:
+        return {"source": source_name, "status": "skipped", "reason": "aucune donnée bronze trouvée"}
+
+    df = read_csv_from_bronze(client, key)
+    quality_report = {"rows_in": len(df), "issues": {}}
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    # Colonne IRIS : code 9 chiffres. Les 5 premiers = code commune.
+    col_iris = next((c for c in df.columns if c in ("iris", "code_iris", "com_iris")), None)
+    if col_iris is None:
+        return {"source": source_name, "status": "failed", "quality": {
+            "erreur": f"Colonne IRIS introuvable (colonnes: {list(df.columns)[:10]})"
+        }}
+
+    df[col_iris] = df[col_iris].astype(str).str.strip().str.zfill(9)
+    df["com"] = df[col_iris].str[:5]
+    df_paris = df[df["com"].str.match(r"^751\d{2}$")].copy()
+    quality_report["lignes_paris"] = len(df_paris)
+
+    if df_paris.empty:
+        return {"source": source_name, "status": "failed", "quality": {"erreur": "Aucun IRIS 75101-75120 trouvé"}}
+
+    df_paris["arrondissement"] = df_paris["com"].str[-2:].astype(int)
+
+    col_tot    = next((c for c in df_paris.columns if c in ("p21_log", "p21_rp", "p20_log")), None)
+    col_maison = next((c for c in df_paris.columns if "maison" in c), None)
+    col_appart = next((c for c in df_paris.columns if "appart" in c), None)
+
+    if col_tot is None:
+        return {"source": source_name, "status": "failed", "quality": {
+            "erreur": f"Colonne total logements introuvable (colonnes: {list(df_paris.columns)[:15]})"
+        }}
+
+    for col in [col_tot, col_maison, col_appart]:
+        if col:
+            df_paris[col] = pd.to_numeric(df_paris[col], errors="coerce").fillna(0)
+
+    df_paris["_nb_maisons"]      = df_paris[col_maison] if col_maison else 0
+    df_paris["_nb_appartements"] = df_paris[col_appart] if col_appart else 0
+
+    agg = df_paris.groupby("arrondissement").agg(
+        nb_logements=(col_tot, "sum"),
+        nb_maisons=("_nb_maisons", "sum"),
+        nb_appartements=("_nb_appartements", "sum"),
+    ).reset_index()
+
+    agg["pct_appartements"] = (
+        agg["nb_appartements"] / agg["nb_logements"].replace(0, pd.NA) * 100
+    ).round(1)
+    agg["type_dominant"] = agg.apply(
+        lambda r: "appartement" if r["nb_appartements"] >= r["nb_maisons"] else "maison", axis=1
+    )
+
+    quality_report["rows_out"] = len(agg)
+    out_key = f"{versioned_prefix(source_name)}/{source_name}.parquet"
+    put_dataframe_as_parquet(client, SILVER_BUCKET, out_key, agg)
+    quality_key = f"_reports/quality/{versioned_prefix(source_name)}.json"
+    quality_report["source_bronze_key"] = key
+    quality_report["output_silver_key"] = out_key
+    put_json(client, SILVER_BUCKET, quality_key, quality_report)
+
+    return {"source": source_name, "status": "success", "output": out_key, "quality": quality_report}
+
+
 def main():
     client = get_s3_client()
     run_start = time.time()
@@ -745,6 +848,22 @@ def main():
         print(f"  - metro_stations: {res['status']} ({q.get('stations_paris', '?')} stations Paris Metro/RER)")
     else:
         print(f"  - metro_stations: {res['status']} — {res.get('reason', '')}")
+
+    res = run_rpls_logements_sociaux(client)
+    results.append(res)
+    if res["status"] == "success":
+        q = res.get("quality", {})
+        print(f"  - rpls_logements_sociaux: {res['status']} ({q.get('rows_out', '?')} arrondissements)")
+    else:
+        print(f"  - rpls_logements_sociaux: {res['status']} — {res.get('reason', res.get('quality', {}).get('erreur', ''))}")
+
+    res = run_insee_rp_logements(client)
+    results.append(res)
+    if res["status"] == "success":
+        q = res.get("quality", {})
+        print(f"  - insee_rp_logements: {res['status']} ({q.get('rows_out', '?')} arrondissements)")
+    else:
+        print(f"  - insee_rp_logements: {res['status']} — {res.get('reason', res.get('quality', {}).get('erreur', ''))}")
 
     n_ok = sum(1 for r in results if r["status"] == "success")
     lignes_total = sum(

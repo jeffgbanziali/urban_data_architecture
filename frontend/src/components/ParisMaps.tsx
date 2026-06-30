@@ -9,7 +9,8 @@ type IndicatorId =
     | "indiceQualiteAir" | "nbEspacesVerts"
     | "population" | "densitePopulation"
     | "nbStationsMetro" | "nbStationsVelib"
-    | "tauxCriminalite";
+    | "tauxCriminalite"
+    | "pctLogementsSociaux" | "pctAppartements";
 
 interface IndicatorMeta {
     id: IndicatorId;
@@ -158,6 +159,11 @@ const ParisMaps = ({
                         </div>
                         <span className="text-ink/50">Élevé</span>
                     </div>
+                    {(max - min) < 5 && indicatorMeta?.unit === "%" && (
+                        <div className="mt-1.5 text-[10px] text-ink/40 leading-tight">
+                            Faible variation entre arrondissements
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

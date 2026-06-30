@@ -1,13 +1,3 @@
-"""
-DAG : transform_silver
-------------------------
-Nettoie, valide et géocode les données brutes (zone BRONZE) puis écrit des
-fichiers Parquet propres en zone SILVER. Déclenché par `ingestion_bronze`,
-déclenche ensuite `aggregate_gold`.
-
-Compétence visée : C3.1 (préparation/nettoyage des données, qualité documentée),
-C2.3 (transformation et intégration multi-sources).
-"""
 from datetime import datetime, timedelta
 
 from airflow import DAG

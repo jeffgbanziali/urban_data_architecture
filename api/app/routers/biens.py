@@ -16,14 +16,17 @@ Stockage semi-structuré (C1.2) :
     indexation GIN, requêtes JSONPath) sans système supplémentaire.
 """
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 
 from app.auth import get_current_user, require_role
-from app import db
+from app import db, mongo_client
 from app.schemas import BienCreate, BienOut, BienUpdate
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/biens", tags=["Biens immobiliers"])
 
@@ -86,16 +89,25 @@ def get_caracteristiques(bien_id: int):
     return row["caracteristiques"] or {}
 
 
+async def _upsert_mongo(bien_id: int, type_bien: str, caracteristiques: dict) -> None:
+    mdb = mongo_client.get_mongo_db()
+    if mdb is None:
+        return
+    try:
+        await mdb.biens_caracteristiques.update_one(
+            {"bien_id": bien_id},
+            {"$set": {"bien_id": bien_id, "type_bien": type_bien, **caracteristiques}},
+            upsert=True,
+        )
+    except Exception as exc:
+        log.warning("MongoDB write failed for bien %s: %s", bien_id, exc)
+
+
 @router.post("", response_model=BienOut, status_code=status.HTTP_201_CREATED)
-def create_bien(
+async def create_bien(
     payload: BienCreate,
     current_user: dict = Depends(require_role("employe", "admin")),
 ):
-    """
-    Crée un bien en PostgreSQL. Les caractéristiques libres optionnelles
-    (jardin_m2, etage, ascenseur…) sont stockées dans la colonne JSONB
-    `caracteristiques` du même enregistrement.
-    """
     data = payload.model_dump(exclude={"caracteristiques"})
     caracteristiques_json = json.dumps(payload.caracteristiques or {})
 
@@ -113,11 +125,14 @@ def create_bien(
         )
         row = result.mappings().first()
         conn.commit()
-    return _row_to_bien(row)
+
+    bien = _row_to_bien(row)
+    await _upsert_mongo(bien["id"], bien["type_bien"], bien.get("caracteristiques") or {})
+    return bien
 
 
 @router.put("/{bien_id}", response_model=BienOut)
-def update_bien(
+async def update_bien(
     bien_id: int,
     payload: BienUpdate,
     current_user: dict = Depends(require_role("employe", "admin")),
@@ -149,7 +164,10 @@ def update_bien(
         )
         row = result.mappings().first()
         conn.commit()
-    return _row_to_bien(row)
+
+    bien = _row_to_bien(row)
+    await _upsert_mongo(bien["id"], bien["type_bien"], bien.get("caracteristiques") or {})
+    return bien
 
 
 @router.delete("/{bien_id}", status_code=status.HTTP_204_NO_CONTENT)

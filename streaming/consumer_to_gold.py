@@ -1,16 +1,3 @@
-"""
-streaming/consumer_to_gold.py
--------------------------------
-Consomme les topics Kafka `events.stream` (qualité de l'air) et `mobilite.raw`
-(disponibilité Vélib) :
-  - persiste chaque événement brut dans PostgreSQL ;
-  - maintient un agrégat glissant par arrondissement via UPSERT ;
-  - notifie pg_notify après chaque insertion (push WebSocket sans polling).
-
-Les transactions immobilières simulées ont été supprimées : DVF est un export
-annuel et non un flux temps réel — elles sont maintenant traitées uniquement
-par le pipeline batch (ingestion_bronze → transform_silver → aggregate_gold).
-"""
 import json
 import os
 import time

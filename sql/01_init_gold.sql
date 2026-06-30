@@ -1,7 +1,3 @@
--- sql/01_init_gold.sql
--- Schéma relationnel de la base GOLD (PostgreSQL).
--- Compétences visées : C1.1 (conception relationnelle), C1.2 (JSONB semi-structuré),
--- C2.2 (temps réel + micro-batch), C2.3 (modélisation dimensionnelle en étoile + data marts).
 
 -- ═══════════════════════════════════════════════════════════════
 -- ZONE GOLD BATCH (alimentée par le pipeline Airflow)
@@ -44,10 +40,19 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='indicateurs_socio' AND column_name='nb_stations_metro') THEN
         ALTER TABLE indicateurs_socio ADD COLUMN nb_stations_metro INTEGER;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='indicateurs_socio' AND column_name='pct_logements_sociaux') THEN
+        ALTER TABLE indicateurs_socio ADD COLUMN pct_logements_sociaux NUMERIC(5, 2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='indicateurs_socio' AND column_name='pct_appartements') THEN
+        ALTER TABLE indicateurs_socio ADD COLUMN pct_appartements NUMERIC(5, 1);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='indicateurs_socio' AND column_name='type_dominant') THEN
+        ALTER TABLE indicateurs_socio ADD COLUMN type_dominant VARCHAR(20);
+    END IF;
 END $$;
 
 -- ═══════════════════════════════════════════════════════════════
--- SCHÉMA EN ÉTOILE (C2.3 — modélisation multidimensionnelle)
+-- SCHÉMA EN ÉTOILE 
 -- Coexiste avec la table plate ; l'API utilise la table plate,
 -- ce schéma sert de base aux data marts analytiques.
 -- ═══════════════════════════════════════════════════════════════
@@ -74,7 +79,7 @@ CREATE TABLE IF NOT EXISTS fait_prix_immobilier (
 );
 
 -- ═══════════════════════════════════════════════════════════════
--- DATA MARTS (C2.3 — vues matérialisées analytiques)
+-- DATA MARTS 
 -- Rafraîchies par aggregate_gold.py après chaque run pipeline.
 -- Chaque mart combine plusieurs couches de données pour offrir
 -- une vision métier directement exploitable.
@@ -147,7 +152,7 @@ SELECT
     s.densite_hab_km2,
     s.indice_qualite_air,
     s.nb_espaces_verts,
-    -- Espaces verts pour 10 000 habitants (indicateur OMS normalisé)
+    -- Espaces verts pour 10 000 habitants 
     CASE
         WHEN s.population > 0 AND s.nb_espaces_verts IS NOT NULL
         THEN ROUND(s.nb_espaces_verts::numeric / s.population * 10000, 2)
@@ -179,8 +184,8 @@ END;
 $$;
 
 -- ═══════════════════════════════════════════════════════════════
--- OBSERVABILITÉ PIPELINE (C1.2 — JSONB, remplace MongoDB)
--- Rapport qualité de chaque run (bronze / silver / gold).
+-- OBSERVABILITÉ PIPELINE 
+-- Rapport qualité de chaque run .
 -- Métriques scalaires indexées + payload complet en JSONB.
 -- Même capacité de filtrage que MongoDB ($lt taux_succes, filtre stage)
 -- via des requêtes SQL standard.
@@ -219,8 +224,8 @@ CREATE INDEX IF NOT EXISTS idx_qualite_air_arr_horodatage
     ON qualite_air_temps_reel (arrondissement, horodatage DESC);
 
 -- ═══════════════════════════════════════════════════════════════
--- ZONE TEMPS RÉEL — Disponibilité Vélib (topic mobilite.raw)
--- Source : OpenData Paris (sans clé API, mise à jour chaque minute)
+-- ZONE TEMPS RÉEL — Disponibilité Vélib 
+-- Source : OpenData Paris 
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS disponibilite_velib_temps_reel (
@@ -245,7 +250,7 @@ CREATE TABLE IF NOT EXISTS velib_agregats_temps_reel (
 );
 
 -- ═══════════════════════════════════════════════════════════════
--- MICRO-BATCH Vélib (C2.2 — fenêtres tumbling de 10 secondes)
+-- MICRO-BATCH Vélib 
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS agregats_micro_batch (
@@ -262,7 +267,7 @@ CREATE INDEX IF NOT EXISTS idx_micro_batch_arr_fenetre
     ON agregats_micro_batch (arrondissement, fenetre_debut DESC);
 
 -- ═══════════════════════════════════════════════════════════════
--- SÉCURITÉ : rôle lecture seule pour l'API (moindre privilège)
+-- SÉCURITÉ : rôle lecture seule pour l'API 
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE INDEX IF NOT EXISTS idx_prix_m2_arr ON prix_m2_arrondissement (arrondissement);

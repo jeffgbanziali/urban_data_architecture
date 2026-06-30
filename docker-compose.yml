@@ -22,7 +22,7 @@ x-airflow-common: &airflow-common
     POSTGRES_GOLD_DB: ${POSTGRES_GOLD_DB:-gold}
     POSTGRES_GOLD_USER: ${POSTGRES_GOLD_USER:-gold_user}
     POSTGRES_GOLD_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
-    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    WAQI_API_TOKEN: ${WAQI_API_TOKEN:-}
     # Permet à pipeline/silver et pipeline/gold d'importer minio_client.py,
     # geo_utils.py et pipeline_reporter.py qui vivent dans pipeline/bronze/.
     PYTHONPATH: /opt/airflow/pipeline/bronze
@@ -103,6 +103,20 @@ services:
       retries: 5
     networks: [urban-net]
 
+  # ============ BASE NON-RELATIONNELLE (MongoDB — caractéristiques des biens, C1.2) ============
+  mongo:
+    image: mongo:7.0
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-mongo_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo_pass}
+      MONGO_INITDB_DATABASE: urban
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks: [urban-net]
+
   # ============ BASE METADATA AIRFLOW (technique, séparée du Gold métier) ============
   postgres-airflow:
     image: postgres:16-alpine
@@ -118,68 +132,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks: [urban-net]
-
-  # ============ STREAMING TEMPS RÉEL ============
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks: [urban-net]
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.1
-    container_name: kafka
-    depends_on: [zookeeper]
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-    networks: [urban-net]
-
-  kafka-producer:
-    build:
-      context: ./streaming
-    container_name: kafka-producer
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      WAQI_API_TOKEN: ${WAQI_API_TOKEN:-}
-      AIR_QUALITY_POLL_INTERVAL_S: ${AIR_QUALITY_POLL_INTERVAL_S:-300}
-    command: ["python", "producer_realtime.py"]
-    networks: [urban-net]
-
-  kafka-consumer:
-    build:
-      context: ./streaming
-    container_name: kafka-consumer
-    depends_on:
-      kafka:
-        condition: service_healthy
-      postgres-gold:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      POSTGRES_GOLD_HOST: postgres-gold
-      POSTGRES_GOLD_DB: ${POSTGRES_GOLD_DB:-gold}
-      POSTGRES_GOLD_USER: ${POSTGRES_GOLD_USER:-gold_user}
-      POSTGRES_GOLD_PASSWORD: ${POSTGRES_GOLD_PASSWORD:-gold_pass}
-    command: ["python", "consumer_to_gold.py"]
     networks: [urban-net]
 
   # ============ ORCHESTRATION ============
@@ -290,6 +242,7 @@ services:
       API_KEY: ${API_KEY:-demo-key-change-me}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+      MONGO_URI: mongodb://${MONGO_USER:-mongo_user}:${MONGO_PASSWORD:-mongo_pass}@mongo:27017/urban?authSource=admin
     depends_on:
       postgres-gold:
         condition: service_healthy
@@ -301,6 +254,7 @@ services:
       context: ./frontend
       args:
         VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
+        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN:-}
     container_name: frontend
     ports:
       - "8501:80"
@@ -316,3 +270,4 @@ volumes:
   postgres_gold_data:
   postgres_airflow_data:
   marquez_db_data:
+  mongo_data:

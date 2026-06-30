@@ -1,14 +1,3 @@
-"""
-DAG : ingestion_bronze
------------------------
-Récupère les sources ouvertes (DVF, INSEE, OpenData Paris, Airparif...) et les
-dépose en zone BRONZE du data lake MinIO. Déclenche ensuite le DAG
-`transform_silver`, conformément au schéma d'architecture du projet.
-
-Compétences visées : C1.3 (Data Lake sécurisé, sources variées), C1.4 (résilience :
-chaque source est gérée indépendamment, voir ingestion/download_sources.py),
-C2.4 (mesure de performance : durée par source loggée + rapport JSON en bronze).
-"""
 from datetime import datetime, timedelta
 
 from airflow import DAG

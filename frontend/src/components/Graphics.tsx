@@ -16,7 +16,8 @@ type IndicatorId =
   | "indiceQualiteAir" | "nbEspacesVerts"
   | "population" | "densitePopulation"
   | "nbStationsMetro" | "nbStationsVelib"
-  | "tauxCriminalite";
+  | "tauxCriminalite"
+  | "pctLogementsSociaux" | "pctAppartements";
 
 interface IndicatorMeta {
   id: IndicatorId;

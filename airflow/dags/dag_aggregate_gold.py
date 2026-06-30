@@ -1,14 +1,3 @@
-"""
-DAG : aggregate_gold
-----------------------
-Calcule les indicateurs métier finaux (prix médian/m², variation annuelle,
-indicateurs socio-économiques) à partir de la zone SILVER et les écrit dans
-PostgreSQL (base "gold") ainsi qu'en exports Parquet dans MinIO/gold.
-Déclenché par `transform_silver`.
-
-Compétences visées : C2.3 (intégration multi-sources), C2.4 (pipeline mesuré),
-C3.3 (insights exploitables pour la décision : variations, comparaisons).
-"""
 from datetime import datetime, timedelta
 
 from airflow import DAG

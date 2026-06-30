@@ -1,17 +1,3 @@
-"""
-streaming/producer_realtime.py
---------------------------------
-Publie sur deux topics Kafka :
-  - events.stream  : qualité de l'air (WAQI / Airparif, toutes les 5 min)
-  - mobilite.raw   : disponibilité Vélib en temps réel (OpenData Paris, toutes les 60 s)
-
-Pas de données inventées : si un appel échoue, on ne publie rien jusqu'à la
-prochaine interrogation. La qualité de l'air garde un repli synthétique
-UNIQUEMENT si WAQI_API_TOKEN n'est pas configuré (cas sans clé API en démo),
-car c'est la seule source pour laquelle un repli avait déjà été documenté.
-Pour Vélib, la source est sans clé et toujours disponible — pas de repli
-synthétique nécessaire ni voulu.
-"""
 import json
 import os
 import random
@@ -109,17 +95,7 @@ def make_air_quality_event() -> dict:
 
 
 def fetch_real_velib_events() -> list[dict]:
-    """
-    Récupère les vraies données Vélib (OpenData Paris, sans clé API, mise à jour
-    toutes les minutes). Pour chaque station, rattache les coordonnées à un
-    arrondissement via point-in-polygon sur les géométries officielles.
-
-    Colonnes réelles confirmées par inspection du fichier JSON :
-      stationcode, name, numdocksavailable, numbikesavailable,
-      coordonnees_geo (dict avec lat et lon), is_installed, is_renting.
-
-    Si l'appel échoue : on ne publie rien (pas de données inventées).
-    """
+   
     try:
         resp = requests.get(VELIB_URL, timeout=20)
         resp.raise_for_status()

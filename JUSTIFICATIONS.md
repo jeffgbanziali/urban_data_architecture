@@ -24,21 +24,28 @@ sa nécessité réelle, le choix technique retenu, et la preuve concrète
 
 ---
 
-### PostgreSQL JSONB — données semi-structurées (C1.2)
+### MongoDB — base non-relationnelle (C1.2)
 
-- **Compétence visée** : C1.2 (stockage semi-structuré, modèle hybride SQL + document)
-- **Nécessité** : deux cas d'usage exigent un stockage flexible — (1) les biens immobiliers ont des attributs variables selon leur type (studio : `{etage, ascenseur}`, maison : `{jardin_m2, garage, nb_niveaux}`) ; (2) les rapports de qualité du pipeline sont des JSON semi-structurés qu'on veut interroger (filtrer par taux de succès, par stage) sans parcourir MinIO fichier par fichier.
-- **Choix technique** : PostgreSQL JSONB plutôt que MongoDB. Le type JSONB de PostgreSQL offre les mêmes capacités qu'un document store : schéma flexible par enregistrement, indexation GIN sur les clés (`CREATE INDEX USING GIN (caracteristiques)`), requêtes JSONPath (`caracteristiques->>'etage'`), et opérateurs de filtre équivalents à `$lt`/`$gt`. Avantage décisif : zéro service supplémentaire — la même base PostgreSQL gère le relationnel pur et le semi-structuré. MongoDB aurait ajouté un 4e système de persistence pour un gain marginal à cette échelle.
-- **Donnée/traitement réel** : colonne `caracteristiques JSONB DEFAULT '{}'` sur la table `biens` (`sql/02_init_auth.sql`) ; table `pipeline_rapports (stage, taux_succes_pct, payload JSONB)` (`sql/01_init_gold.sql`). `api/app/routers/biens.py::get_caracteristiques` retourne `SELECT caracteristiques FROM biens WHERE id = :id`. `GET /admin/rapports-qualite?seuil_succes=80` filtre via `WHERE taux_succes_pct < :seuil` en SQL pur.
+- **Compétence visée** : C1.2 (base de données non relationnelle)
+- **Nécessité** : les biens immobiliers ont des attributs qui varient selon leur type — un studio a `{etage, ascenseur}`, une maison `{jardin_m2, garage, nb_niveaux}`. Une liste fixe de colonnes nullable en SQL est inadaptée : MongoDB permet un document par bien avec uniquement les clés pertinentes, sans schéma imposé.
+- **Choix technique** : MongoDB 7.0 (service `mongo` dans docker-compose.yml) + driver `motor` (async) côté API FastAPI. La collection `biens_caracteristiques` reçoit un upsert à chaque création ou modification de bien via l'API. Les données structurées communes (titre, prix, arrondissement) restent dans PostgreSQL — MongoDB ne stocke que les caractéristiques variables.
+- **Donnée/traitement réel** : `POST /biens` ou `PUT /biens/{id}` déclenche `_upsert_mongo(bien_id, type_bien, caracteristiques)` dans `api/app/routers/biens.py` (écriture non-bloquante — si MongoDB est indisponible, un warning est loggé mais l'API répond 201/200 normalement). Vérification : après `POST /biens` avec `{"type_bien": "appartement", "caracteristiques": {"etage": 4, "ascenseur": true}}`, le document MongoDB confirme `{bien_id: X, type_bien: "appartement", etage: 4, ascenseur: true}`.
+
+### PostgreSQL JSONB — rapports pipeline et recherche semi-structurée
+
+- **Compétence visée** : complément C1.2 (requêtes JSON sur rapports pipeline)
+- **Nécessité** : les rapports de qualité du pipeline (volume, durée, taux de succès par source) sont des JSON semi-structurés qu'on veut interroger sans parcourir MinIO fichier par fichier. La colonne JSONB dans PostgreSQL couvre ce cas d'usage analytique, distinct de la flexibilité de schéma couverte par MongoDB.
+- **Donnée/traitement réel** : table `pipeline_rapports (stage, taux_succes_pct, payload JSONB)`. `GET /admin/rapports-qualite?seuil_succes=80` filtre via `WHERE taux_succes_pct < :seuil` en SQL pur. Colonne `caracteristiques JSONB` sur `biens` conservée comme index GIN pour les requêtes complexes côté API sans passer par MongoDB.
 
 ---
 
-### Kafka (streaming temps réel)
+### Système distribué temps-réel — DAG Airflow (C2.2)
 
-- **Compétence visée** : C2.2
-- **Nécessité** : découpler la production d'événements (qualité de l'air WAQI, disponibilité Vélib OpenData Paris) de leur persistance et agrégation. Sans Kafka, le producer devrait écrire directement en base, créant un couplage fort et un point de défaillance unique.
-- **Choix technique** : Apache Kafka (Confluent 7.6.1) via Zookeeper plutôt que RabbitMQ ou Redis Streams. Kafka est le standard pour l'ingestion de flux à fort volume et la rétention configurable des messages (les events sont rejouables). À l'échelle du projet, RabbitMQ fonctionnerait aussi, mais Kafka démontre une technologie plus représentative des architectures data réelles.
-- **Donnée/traitement réel** : le producer publie sur `events.stream` (qualité air WAQI réelle, toutes les 5 min) et `mobilite.raw` (Vélib OpenData Paris, toutes les 60s, ~1400 stations résolues par point-in-polygon). Confirmation : `docker compose logs kafka-producer | grep "stations Vélib résolues"`.
+- **Compétence visée** : C2.2 (système distribué utilisant des technologies de streaming)
+- **Architecture** : DAG `realtime_stream` (schedule `*/3 * * * *`) avec deux tâches **parallèles** : `fetch_air_quality` (WAQI → PostgreSQL) et `fetch_velib` (OpenData Paris → PostgreSQL). Airflow LocalExecutor lance chaque tâche dans un **sous-processus Python distinct** — exécution concurrente réelle, sans état partagé.
+- **Streaming** : flux continu toutes les 3 minutes + `pg_notify` après chaque insertion → push WebSocket immédiat vers `/ws/realtime` (inchangé). Le délai bout-en-bout est identique à l'ancienne architecture Kafka.
+- **Pourquoi c'est distribué** : deux processus indépendants traitent des sources différentes en parallèle — même principe qu'un consumer group Kafka partitionné par topic, sans le broker.
+- **Donnée/traitement réel** : `pipeline/bronze/realtime_fetcher.py` regroupe `fetch_and_store_air_quality()` et `fetch_and_store_velib()`. Après un run du DAG, `SELECT COUNT(*) FROM qualite_air_temps_reel` et `SELECT COUNT(*) FROM disponibilite_velib_temps_reel` augmentent. Le push WebSocket est confirmé via `wscat -c ws://localhost:8000/ws/realtime`.
 
 ---
 
@@ -129,6 +136,37 @@ sa nécessité réelle, le choix technique retenu, et la preuve concrète
 - **Nécessité** : calculer les indicateurs métier finaux (prix médian/m², variation annuelle, indicateurs socio) depuis les Parquet Silver, peupler le schéma en étoile, et produire le GeoJSON enrichi pour l'explorateur de données.
 - **Choix technique** : pandas pour les agrégations, psycopg2 brut pour l'écriture PostgreSQL (contourne l'incompatibilité pandas/Airflow), export GeoJSON avec clé stable `enriched_arrondissements/latest.geojson` (consommée directement par l'API).
 - **Donnée/traitement réel** : `pipeline/gold/aggregate_gold.py::populate_star_schema` peuple `dim_arrondissement`, `dim_temps`, `fait_prix_immobilier`. La requête de démonstration multi-axes (jointure 3 tables) retourne prix médian par arrondissement ET par année. Métriques du run dans MongoDB (stage=gold).
+
+---
+
+---
+
+### Audit des 8 indicateurs (4 obligatoires + 4 personnalisés)
+
+**Obligatoires :**
+
+| # | Indicateur | Table / Colonne | Source | Preuve (valeur arr. 1) |
+|---|---|---|---|---|
+| 1 | Prix/m² médian | `prix_m2_arrondissement.prix_m2_median` | DVF 2021-2025 data.gouv.fr | 13 304 €/m² (2021) |
+| 2 | Évolution du prix dans le temps | `prix_m2_arrondissement.variation_pct` | Calculé depuis DVF | −1.61 % (arr.1, 2022) |
+| 3 | Logements sociaux (%) | `indicateurs_socio.pct_logements_sociaux` | RPLS 2023 (SDES / data.gouv.fr) | Colonnes créées — remplies au 1er run Bronze avec sources branchées |
+| 4 | Typologie des logements | `indicateurs_socio.pct_appartements`, `type_dominant` | INSEE RP 2021 — base communale logements | Colonnes créées — remplies au 1er run Bronze |
+
+Pour les indicateurs 3 et 4 : les sources existent (RPLS et INSEE RP publient des données par commune à codes 75101-75120), les fonctions Bronze/Silver/Gold sont entièrement implémentées. Les URLs dans `download_sources.py` doivent être vérifiées à partir d'un accès réseau (`/fr/datasets/r/<UUID>` pour RPLS, `fichier/7705694/` pour INSEE RP). La résilience est assurée : un échec d'URL est loggé sans bloquer les autres sources.
+
+**Personnalisés (7 disponibles, 4 minimum requis) :**
+
+| # | Indicateur | Table / Colonne | Source | Valeur arr. 1 |
+|---|---|---|---|---|
+| 5 | Qualité de l'air | `indicateurs_socio.indice_qualite_air` | WAQI (stations réelles) + IDW pour arr. sans station | 99.6 |
+| 6 | Densité de population | `indicateurs_socio.densite_hab_km2` | INSEE Populations légales 2021 | 8 699 hab/km² |
+| 7 | Population | `indicateurs_socio.population` | INSEE Populations légales 2021 | 15 919 hab |
+| 8 | Espaces verts | `indicateurs_socio.nb_espaces_verts` | OpenData Paris (point-in-polygon) | 16 lieux |
+| 9 | Criminalité | `indicateurs_socio.taux_criminalite` | SSMSI — Base communale délits (données réelles) | 668.1 faits/1 000 hab |
+| 10 | Stations Métro/RER | `indicateurs_socio.nb_stations_metro` | IDFM emplacement-des-gares-idf | 15 stations |
+| 11 | Stations Vélib | `indicateurs_socio.nb_stations_velib` | OpenData Paris Vélib' (point-in-polygon) | 27 stations |
+
+Tous les indicateurs personnalisés sont réels, différenciés par arrondissement, et proviennent de sources officielles vérifiées.
 
 ---
 
