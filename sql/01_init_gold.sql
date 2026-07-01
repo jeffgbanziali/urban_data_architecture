@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS indicateurs_socio (
     nb_stations_metro   INTEGER
 );
 
+-- Répartition types de logements et pièces par arrondissement (DVF Silver)
+CREATE TABLE IF NOT EXISTS typologie_logements (
+    arrondissement  SMALLINT NOT NULL CHECK (arrondissement BETWEEN 1 AND 20),
+    type_local      VARCHAR(20) NOT NULL,  -- 'Appartement', 'Maison', ou 'all'
+    nb_pieces_cat   VARCHAR(10) NOT NULL,  -- 'T1','T2','T3','T4','T5+', ou 'all'
+    part_pct        NUMERIC(5, 2),
+    PRIMARY KEY (arrondissement, type_local, nb_pieces_cat)
+);
+
 -- Ajout idempotent des colonnes si la table existait avant cette migration
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='indicateurs_socio' AND column_name='taux_criminalite') THEN

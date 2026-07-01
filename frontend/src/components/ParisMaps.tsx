@@ -72,20 +72,20 @@ const ParisMaps = ({
     const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
     return (
-        <div className="bg-white border border-hairline rounded-xl overflow-hidden shadow-md">
-            <div className="px-4 py-2.5 border-b border-hairline bg-cream-dark flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                    <span className="text-terracotta">
+        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E7EB", boxShadow: "0 1px 3px 0 #0000000d" }}>
+            <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: "1px solid #E5E7EB", backgroundColor: "#F8F9FA" }}>
+                <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#111827" }}>
+                    <span style={{ color: "#1A56DB" }}>
                         {CATEGORY_ICONS[indicatorMeta?.category ?? ""] ?? <BarChart2 size={13} />}
                     </span>
                     {indicatorMeta?.label ?? "Carte choroplèthe"}
                 </div>
-                <span className="font-mono-data text-xs text-ink/40">
+                <span className="font-mono-data text-xs" style={{ color: "#9CA3AF" }}>
                     {formatValue(min, indicatorMeta?.unit ?? "")} – {formatValue(max, indicatorMeta?.unit ?? "")} {indicatorMeta?.unit}
                 </span>
             </div>
 
-            <div className="relative h-[480px] lg:h-[520px]">
+            <div className="relative" style={{ height: "65vh" }}>
                 {geoData ? (
                     <DeckGL
                         viewState={viewState}
@@ -101,18 +101,18 @@ const ParisMaps = ({
                             return {
                                 html: `
                   <div style="padding:12px;min-width:200px;">
-                    <div style="font-weight:700;color:#C1502D;font-size:13px;margin-bottom:8px;">${object.properties.NOM} Arrondissement</div>
-                    <div style="color:#1C2E4A;font-size:13px;margin-bottom:4px;">${indicatorMeta?.label} : <span style="font-weight:600;">${formattedVal}${indicatorMeta?.unit ?? ""}</span></div>
-                    <div style="color:#1C2E4A;opacity:0.6;font-size:11px;">Population : ${formattedPop} hab</div>
+                    <div style="font-weight:700;color:#1A56DB;font-size:13px;margin-bottom:8px;">${object.properties.NOM} Arrondissement</div>
+                    <div style="color:#111827;font-size:13px;margin-bottom:4px;">${indicatorMeta?.label} : <span style="font-weight:600;">${formattedVal}${indicatorMeta?.unit ?? ""}</span></div>
+                    <div style="color:#6B7280;font-size:11px;">Population : ${formattedPop} hab</div>
                   </div>
                 `,
                                 style: {
-                                    backgroundColor: "#F6F1E7",
-                                    color: "#1C2E4A",
-                                    border: "1px solid #DED5C2",
+                                    backgroundColor: "#ffffff",
+                                    color: "#111827",
+                                    border: "1px solid #E5E7EB",
                                     borderRadius: "8px",
                                     fontSize: "13px",
-                                    boxShadow: "0 4px 16px rgba(28,46,74,0.12)",
+                                    boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
                                 },
                             };
                         }}
@@ -125,18 +125,21 @@ const ParisMaps = ({
                         />
                     </DeckGL>
                 ) : (
-                    <div className="h-full flex items-center justify-center text-ink/40">
+                    <div className="flex items-center justify-center" style={{ height: "65vh", color: "#9CA3AF" }}>
                         <div className="text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terracotta mx-auto mb-2"></div>
-                            <p>Chargement de la carte de Paris...</p>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: "#1A56DB" }}></div>
+                            <p className="text-sm">Chargement de la carte de Paris…</p>
                         </div>
                     </div>
                 )}
 
                 {/* Légende couleur */}
-                <div className="absolute bottom-4 left-4 bg-cream/95 backdrop-blur-sm border border-hairline rounded-lg px-3 py-2.5 shadow-md">
+                <div
+                    className="absolute bottom-4 left-4 rounded-lg px-3 py-2.5"
+                    style={{ backgroundColor: "rgba(255,255,255,0.95)", backdropFilter: "blur(4px)", border: "1px solid #E5E7EB", boxShadow: "0 2px 8px 0 #00000014" }}
+                >
                     <div className="flex items-center gap-2 text-xs">
-                        <span className="text-ink/50">Faible</span>
+                        <span style={{ color: "#6B7280" }}>Faible</span>
                         <div className="flex gap-0.5">
                             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
                                 const color = getColorForValue(
@@ -149,18 +152,16 @@ const ParisMaps = ({
                                 return (
                                     <div
                                         key={t}
-                                        className="w-5 h-3 rounded-sm"
-                                        style={{
-                                            backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
-                                        }}
+                                        className="w-6 h-3 rounded-sm"
+                                        style={{ backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})` }}
                                     />
                                 );
                             })}
                         </div>
-                        <span className="text-ink/50">Élevé</span>
+                        <span style={{ color: "#6B7280" }}>Élevé</span>
                     </div>
                     {(max - min) < 5 && indicatorMeta?.unit === "%" && (
-                        <div className="mt-1.5 text-[10px] text-ink/40 leading-tight">
+                        <div className="mt-1.5 text-[10px] leading-tight" style={{ color: "#9CA3AF" }}>
                             Faible variation entre arrondissements
                         </div>
                     )}

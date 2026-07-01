@@ -26,6 +26,7 @@ Parce que ça pose le "pourquoi" avant le "comment". Si vous commencez par "on a
 
 > "Notre réponse, c'est une architecture médaillon : on collecte les données brutes, on les nettoie, on les agrège, et on les expose via une API sécurisée à un frontend React. Tout est orchestré par Airflow et tourne dans Docker."
 
+
 Montrez le schéma ASCII du README. Pas besoin d'expliquer chaque bloc — juste le flux global. Vous reviendrez sur les détails après.
 
 ---

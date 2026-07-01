@@ -47,17 +47,17 @@ interface IndicatorMeta {
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
 const INDICATORS: IndicatorMeta[] = [
-  { id: "prixM2",           label: "Prix immobilier",     unit: "€/m²",         higherIsBetter: false, color: "#8b5cf6", category: "logement",     hasYearDimension: true },
-  { id: "variationPct",     label: "Variation annuelle",  unit: "%",             higherIsBetter: false, color: "#8b5cf6", category: "logement",     hasYearDimension: true },
-  { id: "population",       label: "Population",          unit: "hab",           higherIsBetter: true,  color: "#3b82f6", category: "social" },
-  { id: "densitePopulation",label: "Densité",             unit: "hab/km²",       higherIsBetter: false, color: "#3b82f6", category: "social" },
-  { id: "indiceQualiteAir", label: "Qualité de l'air",    unit: "/100",          higherIsBetter: true,  color: "#22c55e", category: "environnement" },
-  { id: "nbEspacesVerts",   label: "Espaces verts",       unit: "lieux",         higherIsBetter: true,  color: "#22c55e", category: "environnement" },
-  { id: "nbStationsMetro",  label: "Stations Métro/RER",  unit: "stations",      higherIsBetter: true,  color: "#6366f1", category: "transport" },
-  { id: "nbStationsVelib",  label: "Stations Vélib",      unit: "stations",      higherIsBetter: true,  color: "#6366f1", category: "transport" },
-  { id: "tauxCriminalite",     label: "Criminalité",          unit: "faits/1000hab", higherIsBetter: false, color: "#ef4444", category: "securite" },
-  { id: "pctLogementsSociaux", label: "Logements sociaux",    unit: "%",             higherIsBetter: true,  color: "#8b5cf6", category: "logement" },
-  { id: "pctAppartements",     label: "Part d'appartements",  unit: "%",             higherIsBetter: true,  color: "#8b5cf6", category: "logement" },
+  { id: "prixM2",           label: "Prix immobilier",     unit: "€/m²",         higherIsBetter: false, color: "#DC2626", category: "logement",     hasYearDimension: true },
+  { id: "variationPct",     label: "Variation annuelle",  unit: "%",             higherIsBetter: false, color: "#F59E0B", category: "logement",     hasYearDimension: true },
+  { id: "pctLogementsSociaux", label: "Logements sociaux",    unit: "%",         higherIsBetter: true,  color: "#1A56DB", category: "logement" },
+  { id: "pctAppartements",     label: "Part d'appartements",  unit: "%",         higherIsBetter: true,  color: "#6366F1", category: "logement" },
+  { id: "population",       label: "Population",          unit: "hab",           higherIsBetter: true,  color: "#7C3AED", category: "social" },
+  { id: "densitePopulation",label: "Densité",             unit: "hab/km²",       higherIsBetter: false, color: "#7C3AED", category: "social" },
+  { id: "indiceQualiteAir", label: "Qualité de l'air",    unit: "/100",          higherIsBetter: true,  color: "#10B981", category: "environnement" },
+  { id: "nbEspacesVerts",   label: "Espaces verts",       unit: "lieux",         higherIsBetter: true,  color: "#059669", category: "environnement" },
+  { id: "nbStationsMetro",  label: "Stations Métro/RER",  unit: "stations",      higherIsBetter: true,  color: "#0EA5E9", category: "transport" },
+  { id: "nbStationsVelib",  label: "Stations Vélib",      unit: "stations",      higherIsBetter: true,  color: "#06B6D4", category: "transport" },
+  { id: "tauxCriminalite",  label: "Criminalité",         unit: "faits/1000hab", higherIsBetter: false, color: "#DC2626", category: "securite" },
 ];
 
 const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
@@ -84,7 +84,7 @@ const GOLD_FIELD: Record<IndicatorId, string> = {
   pctAppartements:      "pct_appartements",
 };
 
-const ARR_COLORS = ["#C1502D", "#1C2E4A", "#4F7A6F", "#f97316", "#7c3aed", "#16a34a"];
+const ARR_COLORS = ["#1A56DB", "#E3522A", "#10B981", "#F59E0B", "#7C3AED", "#0EA5E9"];
 const arrLabel = (n: number) => (n === 1 ? "1er" : `${n}e`);
 
 const INDICATORS_BY_CATEGORY = Object.fromEntries(
@@ -102,13 +102,15 @@ function propertyKeyFor(id: IndicatorId, year: number): string {
     : `value_${field}`;
 }
 
-// Palettes multi-stops par catégorie (t=0 = valeur basse, t=1 = valeur haute)
+// Palettes 5 paliers par catégorie — spec : vert menthe → ambre → rouge brique
+// t=0 = première couleur (valeur "haute/mauvaise" pour hib=false, ou "basse" pour hib=true)
+// t=1 = dernière couleur (valeur "basse/bonne" pour hib=false, ou "haute/bonne" pour hib=true)
 const PALETTES: Record<string, Array<[number, number, number]>> = {
-  logement:     [[139,  92, 246], [251, 146,  60], [234,  88,  12]], // violet → orange
-  social:       [[ 59, 130, 246], [251, 113, 133], [239,  68,  68]], // bleu   → rouge
-  environnement:[[239,  68,  68], [250, 204,  21], [ 34, 197,  94]], // rouge  → jaune → vert
-  transport:    [[199, 210, 254], [ 99, 102, 241], [ 67,  56, 202]], // indigo clair → indigo → indigo profond
-  securite:     [[239,  68,  68], [250, 204,  21], [ 34, 197,  94]], // rouge  → jaune → vert
+  logement:     [[220, 38,  38], [249, 115,  22], [245, 158,  11], [ 52, 211, 153], [ 16, 185, 129]],
+  social:       [[224, 231, 255], [165, 180, 252], [ 99, 102, 241], [ 79,  70, 229], [ 67,  56, 202]],
+  environnement:[[220, 38,  38], [249, 115,  22], [245, 158,  11], [ 52, 211, 153], [ 16, 185, 129]],
+  transport:    [[186, 230, 253], [125, 211, 252], [ 14, 165, 233], [  3, 130, 195], [  2, 100, 160]],
+  securite:     [[220, 38,  38], [249, 115,  22], [245, 158,  11], [ 52, 211, 153], [ 16, 185, 129]],
 };
 
 function lerpStops(stops: Array<[number, number, number]>, t: number): [number, number, number] {
@@ -249,13 +251,13 @@ const Explorateur: React.FC = () => {
         const v = f.properties?.[propertyKeyFor(selectedIndicator, selectedYear)];
         return getColorForValue(typeof v === "number" ? v : 0, min, max, indicatorMeta?.higherIsBetter ?? true, indicatorMeta?.category) as unknown as [number, number, number, number];
       },
-      getLineColor: [200, 185, 165, 255],
+      getLineColor: [229, 231, 235, 255],
       getLineWidth: 20,
       lineWidthMinPixels: 1,
       lineWidthMaxPixels: 2,
       pickable: true,
       autoHighlight: true,
-      highlightColor: [193, 80, 45, 80],
+      highlightColor: [26, 86, 219, 60],
       onHover: (info: any) => setHoveredArr(info.object?.properties?.NUM_ARR ?? null),
       onClick: (info: any) => {
         const n = info.object?.properties?.NUM_ARR;
@@ -275,20 +277,45 @@ const Explorateur: React.FC = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-cream text-ink flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8F9FA", color: "#111827" }}>
+
+      {/* ── En-tête atlas ────────────────────────────────────────────── */}
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "#E5E7EB" }}>
+        <div>
+          <h1 className="font-display text-lg font-bold" style={{ color: "#111827" }}>
+            Atlas immobilier de Paris
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>
+            20 arrondissements · Données DVF réelles
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: "#6B7280" }}>Année</span>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            disabled={!indicatorMeta?.hasYearDimension}
+            className="border rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 transition disabled:opacity-40"
+            style={{ borderColor: "#E5E7EB", color: "#111827", backgroundColor: "#fff" }}
+          >
+            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
 
       {/* ── Barre catégories ──────────────────────────────────────────── */}
-      <div className="bg-white border-b border-hairline px-4 sticky top-14 z-10">
+      <div className="bg-white border-b px-4 sticky top-14 z-10" style={{ borderColor: "#E5E7EB" }}>
         <div className="flex items-center gap-1 overflow-x-auto">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               onClick={() => handleCategoryChange(cat.id)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
+              style={
                 selectedCategory === cat.id
-                  ? "border-terracotta text-terracotta"
-                  : "border-transparent text-ink/50 hover:text-ink hover:border-ink/20"
-              }`}
+                  ? { borderBottomColor: "#1A56DB", color: "#1A56DB" }
+                  : { borderBottomColor: "transparent", color: "#6B7280" }
+              }
             >
               {cat.icon}
               {cat.label}
@@ -297,39 +324,25 @@ const Explorateur: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Barre indicateur + année ──────────────────────────────────── */}
-      <div className="bg-cream-dark border-b border-hairline px-4 py-2 flex flex-wrap items-center gap-2">
+      {/* ── Barre indicateurs ─────────────────────────────────────────── */}
+      <div className="bg-white border-b px-4 py-2 flex flex-wrap items-center gap-2" style={{ borderColor: "#E5E7EB" }}>
         <div className="flex gap-1.5 flex-wrap">
           {INDICATORS.filter((i) => i.category === selectedCategory).map((ind) => (
             <button
               key={ind.id}
               onClick={() => setSelectedIndicator(ind.id)}
-              className={`px-3 py-1 text-xs rounded-full border transition-all font-medium ${
+              className="px-3 py-1.5 text-xs rounded-full border transition-all font-medium"
+              style={
                 selectedIndicator === ind.id
-                  ? "text-white border-transparent"
-                  : "text-ink/60 border-hairline hover:border-ink/40 bg-white"
-              }`}
-              style={selectedIndicator === ind.id ? { backgroundColor: ind.color, borderColor: ind.color } : undefined}
+                  ? { backgroundColor: "#1A56DB", borderColor: "#1A56DB", color: "#fff" }
+                  : { backgroundColor: "#fff", borderColor: "#E5E7EB", color: "#6B7280" }
+              }
             >
               {ind.label}
             </button>
           ))}
         </div>
-
-        {indicatorMeta?.hasYearDimension && (
-          <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-xs text-ink/40">Année</span>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-white border border-hairline text-ink text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-terracotta"
-            >
-              {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        )}
-
-        <span className="font-mono-data text-xs text-ink/30 hidden lg:block ml-2">
+        <span className="font-mono-data text-xs hidden lg:block ml-auto" style={{ color: "#9CA3AF" }}>
           {fmtN(min)} – {fmtN(max)} {indicatorMeta?.unit}
         </span>
       </div>

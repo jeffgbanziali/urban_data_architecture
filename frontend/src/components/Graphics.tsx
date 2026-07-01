@@ -40,25 +40,25 @@ interface TimeSeriesItem {
 }
 
 const LINE_COLORS = [
-  "#C1502D", // terracotta
-  "#1C2E4A", // ink
-  "#4F7A6F", // verdigris
-  "#f97316", // orange
-  "#7c3aed", // violet
-  "#16a34a", // green
-  "#0284c7", // sky
-  "#db2777", // pink
+  "#1A56DB",
+  "#E3522A",
+  "#10B981",
+  "#F59E0B",
+  "#7C3AED",
+  "#0EA5E9",
+  "#EC4899",
+  "#059669",
 ];
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#1C2E4A",
+  backgroundColor: "#1A56DB",
   border: "none",
   borderRadius: "8px",
-  color: "#F6F1E7",
+  color: "#ffffff",
   fontSize: "12px",
 };
 
-const TICK_STYLE = { fontSize: 10, fill: "#1C2E4A" };
+const TICK_STYLE = { fontSize: 10, fill: "#6B7280" };
 
 type Props = {
   chartData: ChartDataItem[];
@@ -96,7 +96,7 @@ const Graphics = ({
         <div className="h-60">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 56 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#DED5C2" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
               <XAxis
                 dataKey="nom"
                 angle={-45}
@@ -143,7 +143,7 @@ const Graphics = ({
                 data={timeSeriesData}
                 margin={{ top: 4, right: 8, left: 8, bottom: 4 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#DED5C2" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
                 <XAxis dataKey="year" tick={TICK_STYLE} />
                 <YAxis
                   tick={TICK_STYLE}

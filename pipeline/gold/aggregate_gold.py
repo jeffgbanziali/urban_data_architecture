@@ -254,6 +254,66 @@ def build_indicateurs_socio(client, engine) -> pd.DataFrame:
     return base
 
 
+def build_typologie_logements(client) -> pd.DataFrame:
+    """
+    Calcule par arrondissement, depuis les DVF Silver (2021-2025) :
+      - répartition Appartement / Maison (type_local='Appartement'|'Maison', nb_pieces_cat='all')
+      - répartition T1/T2/T3/T4/T5+      (type_local='all', nb_pieces_cat='T1'|…|'T5+')
+    Écrit dans la table PostgreSQL typologie_logements.
+    """
+    frames = []
+    for year in YEARS:
+        key = latest_parquet(client, f"dvf_{year}")
+        if key is None:
+            continue
+        df = read_parquet_from_silver(client, key)
+        frames.append(df)
+
+    if not frames:
+        return pd.DataFrame()
+
+    full = pd.concat(frames, ignore_index=True)
+    if "type_local" not in full.columns or "arrondissement" not in full.columns:
+        return pd.DataFrame()
+
+    full = full.dropna(subset=["arrondissement"])
+    full["arrondissement"] = full["arrondissement"].astype(int)
+    has_pieces = "nombre_pieces_principales" in full.columns
+
+    results = []
+    for arr, grp in full.groupby("arrondissement"):
+        total = len(grp)
+        if total == 0:
+            continue
+
+        for type_local, count in grp["type_local"].value_counts().items():
+            results.append({
+                "arrondissement": int(arr),
+                "type_local": str(type_local),
+                "nb_pieces_cat": "all",
+                "part_pct": round(count / total * 100, 2),
+            })
+
+        if has_pieces:
+            pcs = pd.to_numeric(grp["nombre_pieces_principales"], errors="coerce")
+            def _cat(x):
+                if pd.isna(x): return None
+                x = int(x)
+                return "T1" if x <= 1 else "T2" if x == 2 else "T3" if x == 3 else "T4" if x == 4 else "T5+"
+            cats = pcs.map(_cat).dropna()
+            pieces_total = len(cats)
+            if pieces_total > 0:
+                for cat, cnt in cats.value_counts().items():
+                    results.append({
+                        "arrondissement": int(arr),
+                        "type_local": "all",
+                        "nb_pieces_cat": str(cat),
+                        "part_pct": round(cnt / pieces_total * 100, 2),
+                    })
+
+    return pd.DataFrame(results) if results else pd.DataFrame()
+
+
 def latest_bronze_geojson(client) -> dict | None:
     """Tente de lire le GeoJSON officiel le plus récent en zone bronze (téléchargé
     par ingestion/download_sources.py). Retourne None si indisponible (réseau
@@ -545,6 +605,15 @@ def main():
     put_dataframe_as_parquet(client, GOLD_BUCKET, f"{versioned_prefix('indicateurs_socio')}/data.parquet", df_socio)
     report["tables"].append({"table": "indicateurs_socio", "rows": n})
     print(f"  indicateurs_socio : {n} lignes -> PostgreSQL + MinIO/gold")
+
+    # --- Typologie des logements (type_local + nb_pièces par arrondissement) ---
+    df_typo = build_typologie_logements(client)
+    if not df_typo.empty:
+        n = write_to_postgres(engine, df_typo, "typologie_logements")
+        report["tables"].append({"table": "typologie_logements", "rows": n})
+        print(f"  typologie_logements : {n} lignes -> PostgreSQL")
+    else:
+        print("  typologie_logements : aucune donnée DVF (skip)")
 
     # --- Data Marts — rafraîchissement des vues matérialisées ---
     marts_ok = refresh_data_marts(engine)
