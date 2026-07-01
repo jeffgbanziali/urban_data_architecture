@@ -89,8 +89,8 @@ const Graphics = ({
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       {/* Comparaison barres — tous les arrondissements pour l'année sélectionnée */}
-      <div className="bg-white border border-hairline rounded-xl p-5 shadow-sm">
-        <h3 className="font-display text-sm font-semibold text-ink mb-4">
+      <div className="rounded-xl p-5 shadow-sm" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+        <h3 className="font-display text-sm font-semibold mb-4" style={{ color: "var(--text)" }}>
           Comparaison · {indicatorMeta?.label}
         </h3>
         <div className="h-60">
@@ -127,8 +127,8 @@ const Graphics = ({
       </div>
 
       {/* Évolution temporelle multi-arrondissements */}
-      <div className="bg-white border border-hairline rounded-xl p-5 shadow-sm">
-        <h3 className="font-display text-sm font-semibold text-ink mb-4">
+      <div className="rounded-xl p-5 shadow-sm" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+        <h3 className="font-display text-sm font-semibold mb-4" style={{ color: "var(--text)" }}>
           Évolution 2021 – 2025
           {!indicatorMeta?.hasYearDimension && (
             <span className="ml-2 text-xs font-normal text-ink/40">
@@ -176,7 +176,7 @@ const Graphics = ({
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex items-center justify-center text-center px-6">
-              <p className="text-ink/30 text-sm leading-relaxed">
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-3)" }}>
                 {indicatorMeta?.hasYearDimension
                   ? "Sélectionnez des arrondissements dans le sélecteur ci-dessus pour afficher leur évolution."
                   : "L'évolution temporelle est disponible pour les indicateurs prix immobilier et variation annuelle."}

@@ -1,30 +1,55 @@
 @import "tailwindcss";
 @import 'leaflet/dist/leaflet.css';
 
-@theme {
-  /* Palette Urban Immo — neutre moderne */
-  --color-cream: #F8F9FA;
-  --color-cream-dark: #F3F4F6;
-  --color-ink: #111827;
-  --color-ink-light: #374151;
-  --color-terracotta: #E3522A;
-  --color-terracotta-light: #F97316;
-  --color-verdigris: #10B981;
-  --color-hairline: #E5E7EB;
-
-  --font-display: "Oswald", sans-serif;
-  --font-body: "Public Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
+/* ── Variables de thème ──────────────────────────────────────────── */
+:root {
+  --bg:          #F8F9FA;
+  --surface:     #ffffff;
+  --surface-alt: #F3F4F6;
+  --text:        #111827;
+  --text-2:      #6B7280;
+  --text-3:      #9CA3AF;
+  --border:      #E5E7EB;
+  --accent:      #1A56DB;
 }
+
+.dark {
+  --bg:          #0F172A;
+  --surface:     #1E293B;
+  --surface-alt: #283548;
+  --text:        #F1F5F9;
+  --text-2:      #94A3B8;
+  --text-3:      #64748B;
+  --border:      #334155;
+  --accent:      #60A5FA;
+}
+
+/* ── Classes Tailwind custom ─────────────────────────────────────── */
+@theme {
+  --color-cream:            #F8F9FA;
+  --color-cream-dark:       #F3F4F6;
+  --color-ink:              #111827;
+  --color-ink-light:        #374151;
+  --color-terracotta:       #E3522A;
+  --color-terracotta-light: #F97316;
+  --color-verdigris:        #10B981;
+  --color-hairline:         #E5E7EB;
+
+  --font-display:  "Oswald", sans-serif;
+  --font-body:     "Public Sans", system-ui, sans-serif;
+  --font-mono:     "IBM Plex Mono", monospace;
+}
+
+/* Active dark: variant (basé sur la classe .dark sur <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
 
 body {
   font-family: var(--font-body);
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s, color 0.2s;
 }
 
-.font-display {
-  font-family: var(--font-display);
-}
-.font-mono-data {
-  font-family: var(--font-mono);
-}
+.font-display   { font-family: var(--font-display); }
+.font-mono-data { font-family: var(--font-mono); }
 

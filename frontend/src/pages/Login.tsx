@@ -73,12 +73,7 @@ const Login: React.FC = () => {
         Pas encore de compte ? <Link to="/inscription" className="text-terracotta font-semibold">Inscrivez-vous</Link>
       </p>
 
-      <div className="mt-8 text-xs text-ink/40 bg-cream-dark border border-hairline rounded-lg p-3">
-        <strong>Comptes de démonstration :</strong><br />
-        admin@urban-data-explorer.fr / admin123<br />
-        employe@urban-data-explorer.fr / employe123<br />
-        client@urban-data-explorer.fr / client123
-      </div>
+      
     </div>
   );
 };

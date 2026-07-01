@@ -277,34 +277,36 @@ const Explorateur: React.FC = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8F9FA", color: "#111827" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}>
 
       {/* ── En-tête atlas ────────────────────────────────────────────── */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "#E5E7EB" }}>
+      <div className="border-b px-6 py-4 flex items-center justify-between" style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
         <div>
-          <h1 className="font-display text-lg font-bold" style={{ color: "#111827" }}>
+          <h1 className="font-display text-lg font-bold" style={{ color: "var(--text)" }}>
             Atlas immobilier de Paris
           </h1>
-          <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
             20 arrondissements · Données DVF réelles
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium" style={{ color: "#6B7280" }}>Année</span>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            disabled={!indicatorMeta?.hasYearDimension}
-            className="border rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 transition disabled:opacity-40"
-            style={{ borderColor: "#E5E7EB", color: "#111827", backgroundColor: "#fff" }}
-          >
-            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium" style={{ color: "var(--text-2)" }}>Année</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              disabled={!indicatorMeta?.hasYearDimension}
+              className="border rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none transition disabled:opacity-40"
+              style={{ borderColor: "var(--border)", color: "var(--text)", backgroundColor: "var(--surface)" }}
+            >
+              {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* ── Barre catégories ──────────────────────────────────────────── */}
-      <div className="bg-white border-b px-4 sticky top-14 z-10" style={{ borderColor: "#E5E7EB" }}>
+      <div className="border-b px-4 sticky top-14 z-10" style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-1 overflow-x-auto">
           {CATEGORIES.map((cat) => (
             <button
@@ -313,8 +315,8 @@ const Explorateur: React.FC = () => {
               className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap"
               style={
                 selectedCategory === cat.id
-                  ? { borderBottomColor: "#1A56DB", color: "#1A56DB" }
-                  : { borderBottomColor: "transparent", color: "#6B7280" }
+                  ? { borderBottomColor: "var(--accent)", color: "var(--accent)" }
+                  : { borderBottomColor: "transparent", color: "var(--text-2)" }
               }
             >
               {cat.icon}
@@ -325,7 +327,7 @@ const Explorateur: React.FC = () => {
       </div>
 
       {/* ── Barre indicateurs ─────────────────────────────────────────── */}
-      <div className="bg-white border-b px-4 py-2 flex flex-wrap items-center gap-2" style={{ borderColor: "#E5E7EB" }}>
+      <div className="border-b px-4 py-2 flex flex-wrap items-center gap-2" style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="flex gap-1.5 flex-wrap">
           {INDICATORS.filter((i) => i.category === selectedCategory).map((ind) => (
             <button
@@ -334,15 +336,15 @@ const Explorateur: React.FC = () => {
               className="px-3 py-1.5 text-xs rounded-full border transition-all font-medium"
               style={
                 selectedIndicator === ind.id
-                  ? { backgroundColor: "#1A56DB", borderColor: "#1A56DB", color: "#fff" }
-                  : { backgroundColor: "#fff", borderColor: "#E5E7EB", color: "#6B7280" }
+                  ? { backgroundColor: "var(--accent)", borderColor: "var(--accent)", color: "#fff" }
+                  : { backgroundColor: "var(--surface)", borderColor: "var(--border)", color: "var(--text-2)" }
               }
             >
               {ind.label}
             </button>
           ))}
         </div>
-        <span className="font-mono-data text-xs hidden lg:block ml-auto" style={{ color: "#9CA3AF" }}>
+        <span className="font-mono-data text-xs hidden lg:block ml-auto" style={{ color: "var(--text-3)" }}>
           {fmtN(min)} – {fmtN(max)} {indicatorMeta?.unit}
         </span>
       </div>
@@ -356,19 +358,19 @@ const Explorateur: React.FC = () => {
       <main className="flex-1 flex flex-col gap-0">
 
         {/* ── KPI cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-hairline border-b border-hairline">
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-b" style={{ gap: "1px", backgroundColor: "var(--border)", borderColor: "var(--border)" }}>
           {[
-            { icon: <BarChart2 size={16} className="text-terracotta" />, label: "Prix moyen Paris",     value: Number.isNaN(kpis.avgPrice) ? "—" : `${fmtN(kpis.avgPrice)} €/m²`, sub: String(selectedYear) },
-            { icon: <TrendingUp size={16} className="text-verdigris" />,  label: "Variation moy.",      value: Number.isNaN(kpis.avgVar)   ? "—" : `${kpis.avgVar >= 0 ? "+" : ""}${kpis.avgVar.toFixed(1)} %`, color: Number.isNaN(kpis.avgVar) ? undefined : kpis.avgVar >= 0 ? "#4F7A6F" : "#C1502D" },
-            { icon: <Train size={16} className="text-sky-600" />,         label: "Stations Métro/RER",  value: kpis.totalMetro === 0 ? "—" : fmtN(kpis.totalMetro), sub: "RATP" },
-            { icon: <Users size={16} className="text-terracotta" />,      label: "Population Paris",    value: kpis.totalPop === 0 ? "—" : new Intl.NumberFormat("fr-FR", { notation: "compact" }).format(kpis.totalPop), sub: "INSEE 2021" },
+            { icon: <BarChart2 size={16} style={{ color: "#E3522A" }} />, label: "Prix moyen Paris",    value: Number.isNaN(kpis.avgPrice) ? "—" : `${fmtN(kpis.avgPrice)} €/m²`, sub: String(selectedYear) },
+            { icon: <TrendingUp size={16} style={{ color: "#10B981" }} />, label: "Variation moy.",     value: Number.isNaN(kpis.avgVar)   ? "—" : `${kpis.avgVar >= 0 ? "+" : ""}${kpis.avgVar.toFixed(1)} %`, color: Number.isNaN(kpis.avgVar) ? undefined : kpis.avgVar >= 0 ? "#10B981" : "#E3522A" },
+            { icon: <Train size={16} style={{ color: "#0EA5E9" }} />,      label: "Stations Métro/RER", value: kpis.totalMetro === 0 ? "—" : fmtN(kpis.totalMetro), sub: "RATP" },
+            { icon: <Users size={16} style={{ color: "#E3522A" }} />,      label: "Population Paris",   value: kpis.totalPop === 0 ? "—" : new Intl.NumberFormat("fr-FR", { notation: "compact" }).format(kpis.totalPop), sub: "INSEE 2021" },
           ].map((kpi, i) => (
-            <div key={i} className="bg-white px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-cream flex-shrink-0 flex items-center justify-center">{kpi.icon}</div>
+            <div key={i} className="px-4 py-3 flex items-center gap-3" style={{ backgroundColor: "var(--surface)" }}>
+              <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--surface-alt)" }}>{kpi.icon}</div>
               <div className="min-w-0">
-                <div className="text-ink/40 text-xs truncate">{kpi.label}</div>
-                <div className="font-mono-data text-base font-bold leading-tight" style={kpi.color ? { color: kpi.color } : undefined}>{kpi.value}</div>
-                {kpi.sub && <div className="text-ink/25 text-xs">{kpi.sub}</div>}
+                <div className="text-xs truncate" style={{ color: "var(--text-2)" }}>{kpi.label}</div>
+                <div className="font-mono-data text-base font-bold leading-tight" style={kpi.color ? { color: kpi.color } : { color: "var(--text)" }}>{kpi.value}</div>
+                {kpi.sub && <div className="text-xs" style={{ color: "var(--text-3)" }}>{kpi.sub}</div>}
               </div>
             </div>
           ))}
@@ -398,9 +400,9 @@ const Explorateur: React.FC = () => {
         </div>
 
         {/* ── Section graphiques ────────────────────────────────────────── */}
-        <div className="border-t border-hairline bg-cream-dark">
+        <div className="border-t" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
           <div className="px-4 py-3 flex items-center justify-between">
-            <span className="font-display text-sm font-semibold text-ink">Comparaison & évolution</span>
+            <span className="font-display text-sm font-semibold" style={{ color: "var(--text)" }}>Comparaison & évolution</span>
 
             {/* Sélecteur arrondissements pour la série temporelle */}
             {indicatorMeta?.hasYearDimension && (
@@ -426,25 +428,27 @@ const Explorateur: React.FC = () => {
                   <div className="relative">
                     <button
                       onClick={() => setShowArrPicker((p) => !p)}
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs border border-hairline rounded-full bg-white text-ink/60 hover:border-ink/40"
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs border rounded-full transition-colors"
+                      style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)", color: "var(--text-2)" }}
                     >
                       + Arrondissement <ChevronDown size={10} />
                     </button>
                     {showArrPicker && (
-                      <div className="absolute right-0 top-7 z-20 bg-white border border-hairline rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1 w-52">
+                      <div className="absolute right-0 top-7 z-20 rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1 w-52" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
                         {Array.from({ length: 20 }, (_, i) => i + 1)
                           .filter((n) => !comparedArrs.includes(n))
                           .map((n) => (
                             <button
                               key={n}
                               onClick={() => { toggleComparison(n); setShowArrPicker(false); }}
-                              className="px-1.5 py-1 text-xs rounded-lg border border-hairline hover:bg-cream-dark text-center"
+                              className="px-1.5 py-1 text-xs rounded-lg text-center transition-colors"
+                              style={{ border: "1px solid var(--border)", color: "var(--text-2)", backgroundColor: "var(--surface)" }}
                             >
                               {arrLabel(n)}
                             </button>
                           ))}
                         {Array.from({ length: 20 }, (_, i) => i + 1).every((n) => comparedArrs.includes(n)) && (
-                          <span className="col-span-5 text-xs text-ink/40 text-center py-2">Max 6 sélectionnés</span>
+                          <span className="col-span-5 text-xs text-center py-2" style={{ color: "var(--text-3)" }}>Max 6 sélectionnés</span>
                         )}
                       </div>
                     )}

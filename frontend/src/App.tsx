@@ -2,6 +2,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -20,9 +21,9 @@ import DashboardAdmin from "./pages/dashboard/DashboardAdmin";
 import "./App.css";
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-cream text-ink">
+  <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}>
     <Navbar />
-    <main className="flex-1 ">{children}</main>
+    <main className="flex-1">{children}</main>
     <Footer />
   </div>
 );
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+      <ThemeProvider>
         <Layout>
           <Routes>
             <Route path="/" element={<Explorateur />} />
@@ -75,6 +77,7 @@ const App: React.FC = () => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
+      </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

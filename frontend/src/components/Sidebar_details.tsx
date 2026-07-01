@@ -124,11 +124,11 @@ const Sidebar_details = ({
         : [];
 
     return (
-        <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto" style={{ backgroundColor: "#fff", borderLeft: "1px solid #E5E7EB" }}>
+        <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto" style={{ backgroundColor: "var(--surface)", borderLeft: "1px solid var(--border)" }}>
             {/* Header */}
-            <div className="sticky top-0 z-10 px-5 py-4" style={{ backgroundColor: "#fff", borderBottom: "1px solid #E5E7EB" }}>
-                <h2 className="font-display text-sm font-semibold flex items-center gap-2" style={{ color: "#111827" }}>
-                    <BarChart2 size={15} style={{ color: "#1A56DB" }} />
+            <div className="sticky top-0 z-10 px-5 py-4" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                <h2 className="font-display text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text)" }}>
+                    <BarChart2 size={15} style={{ color: "var(--accent)" }} />
                     Profil de l'arrondissement
                 </h2>
             </div>
@@ -138,10 +138,10 @@ const Sidebar_details = ({
                     <div className="space-y-5">
                         {/* Identité */}
                         <div>
-                            <div className="font-display text-lg font-bold leading-tight" style={{ color: "#111827" }}>
+                            <div className="font-display text-lg font-bold leading-tight" style={{ color: "var(--text)" }}>
                                 {displayData.nom}
                             </div>
-                            <div className="text-xs mt-0.5" style={{ color: "#6B7280" }}>
+                            <div className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
                                 {formatValue(displayData.population, "hab")} habitants
                             </div>
                             {selectedArr === displayData.arrondissement && (
@@ -159,7 +159,7 @@ const Sidebar_details = ({
                             <div className="text-xs font-medium mb-1.5" style={{ color: indicatorMeta?.color }}>
                                 {indicatorMeta?.label}
                             </div>
-                            <div className="font-mono-data text-2xl font-bold" style={{ color: "#111827" }}>
+                            <div className="font-mono-data text-2xl font-bold" style={{ color: "var(--text)" }}>
                                 {formatValue(displayData[selectedIndicator], "", selectedIndicator === "variationPct")}
                                 <span className="text-sm ml-1 font-normal" style={{ color: (indicatorMeta?.color ?? "#6B7280") + "99" }}>
                                     {indicatorMeta?.unit}
@@ -173,7 +173,7 @@ const Sidebar_details = ({
                                 <div key={category}>
                                     <div
                                         className="text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5"
-                                        style={{ color: "#9CA3AF" }}
+                                        style={{ color: "var(--text-3)" }}
                                     >
                                         {CATEGORY_ICONS[category]}
                                         {CATEGORY_LABELS[category] ?? category}
@@ -187,7 +187,7 @@ const Sidebar_details = ({
                                                     key={ind.id}
                                                     className="rounded-xl border p-3 transition-all"
                                                     style={{
-                                                        backgroundColor: isActive ? ind.color + "10" : "#fff",
+                                                        backgroundColor: isActive ? ind.color + "10" : "var(--surface)",
                                                         borderColor: isActive ? ind.color + "50" : "#E5E7EB",
                                                         boxShadow: isActive ? `0 0 0 1.5px ${ind.color}30` : "0 1px 3px 0 #0000000d",
                                                     }}
@@ -197,14 +197,14 @@ const Sidebar_details = ({
                                                             className="w-2 h-2 rounded-full flex-shrink-0"
                                                             style={{ backgroundColor: ind.color }}
                                                         />
-                                                        <span className="text-[10px] font-medium leading-tight" style={{ color: "#6B7280" }}>
+                                                        <span className="text-[10px] font-medium leading-tight" style={{ color: "var(--text-2)" }}>
                                                             {ind.label}
                                                         </span>
                                                     </div>
-                                                    <div className="font-mono-data font-bold text-sm leading-none" style={{ color: "#111827" }}>
+                                                    <div className="font-mono-data font-bold text-sm leading-none" style={{ color: "var(--text)" }}>
                                                         {formatValue(val, "", ind.id === "variationPct")}
                                                         {!Number.isNaN(val as number) && val != null && (
-                                                            <span className="text-[10px] font-normal ml-0.5" style={{ color: "#9CA3AF" }}>
+                                                            <span className="text-[10px] font-normal ml-0.5" style={{ color: "var(--text-3)" }}>
                                                                 {ind.unit}
                                                             </span>
                                                         )}
@@ -220,14 +220,14 @@ const Sidebar_details = ({
                         {/* Donuts — Typologie des logements */}
                         {typologieData && (typeEntries.length > 0 || piecesEntries.length > 0) && (
                             <div>
-                                <div className="text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: "#9CA3AF" }}>
+                                <div className="text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: "var(--text-3)" }}>
                                     <Home size={13} />
                                     Typologie des logements
                                 </div>
                                 <div className="space-y-4">
                                     {typeEntries.length > 0 && (
-                                        <div className="rounded-xl border p-3" style={{ borderColor: "#E5E7EB", boxShadow: "0 1px 3px 0 #0000000d" }}>
-                                            <div className="text-xs font-medium mb-2" style={{ color: "#6B7280" }}>Type de bien</div>
+                                        <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)", boxShadow: "0 1px 3px 0 #0000000d" }}>
+                                            <div className="text-xs font-medium mb-2" style={{ color: "var(--text-2)" }}>Type de bien</div>
                                             <ResponsiveContainer width="100%" height={130}>
                                                 <PieChart>
                                                     <Pie
@@ -253,7 +253,7 @@ const Sidebar_details = ({
                                             </ResponsiveContainer>
                                             <div className="flex flex-wrap gap-2 mt-1">
                                                 {typeEntries.map((e) => (
-                                                    <span key={e.name} className="flex items-center gap-1 text-[11px]" style={{ color: "#374151" }}>
+                                                    <span key={e.name} className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-2)" }}>
                                                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: TYPE_COLORS[e.name] ?? "#9CA3AF" }} />
                                                         {e.name} — {e.value.toFixed(1)} %
                                                     </span>
@@ -263,8 +263,8 @@ const Sidebar_details = ({
                                     )}
 
                                     {piecesEntries.length > 0 && (
-                                        <div className="rounded-xl border p-3" style={{ borderColor: "#E5E7EB", boxShadow: "0 1px 3px 0 #0000000d" }}>
-                                            <div className="text-xs font-medium mb-2" style={{ color: "#6B7280" }}>Nombre de pièces</div>
+                                        <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)", boxShadow: "0 1px 3px 0 #0000000d" }}>
+                                            <div className="text-xs font-medium mb-2" style={{ color: "var(--text-2)" }}>Nombre de pièces</div>
                                             <ResponsiveContainer width="100%" height={130}>
                                                 <PieChart>
                                                     <Pie
@@ -290,7 +290,7 @@ const Sidebar_details = ({
                                             </ResponsiveContainer>
                                             <div className="flex flex-wrap gap-2 mt-1">
                                                 {piecesEntries.map((e) => (
-                                                    <span key={e.name} className="flex items-center gap-1 text-[11px]" style={{ color: "#374151" }}>
+                                                    <span key={e.name} className="flex items-center gap-1 text-[11px]" style={{ color: "var(--text-2)" }}>
                                                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIECES_COLORS[e.name] ?? "#9CA3AF" }} />
                                                         {e.name} — {e.value.toFixed(1)} %
                                                     </span>
@@ -305,10 +305,10 @@ const Sidebar_details = ({
                 ) : (
                     <div className="text-center py-16">
                         <MapPin size={36} className="mx-auto mb-3" style={{ color: "#D1D5DB" }} />
-                        <div className="text-sm font-semibold mb-1" style={{ color: "#6B7280" }}>
+                        <div className="text-sm font-semibold mb-1" style={{ color: "var(--text-2)" }}>
                             Explorez Paris arrondissement par arrondissement
                         </div>
-                        <p className="text-xs leading-relaxed" style={{ color: "#9CA3AF" }}>
+                        <p className="text-xs leading-relaxed" style={{ color: "var(--text-3)" }}>
                             Cliquez sur un arrondissement pour explorer ses indicateurs
                         </p>
                     </div>

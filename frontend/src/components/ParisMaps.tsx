@@ -72,15 +72,15 @@ const ParisMaps = ({
     const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
     return (
-        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #E5E7EB", boxShadow: "0 1px 3px 0 #0000000d" }}>
-            <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: "1px solid #E5E7EB", backgroundColor: "#F8F9FA" }}>
-                <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#111827" }}>
-                    <span style={{ color: "#1A56DB" }}>
+        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", boxShadow: "0 1px 3px 0 #0000000d" }}>
+            <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface-alt)" }}>
+                <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text)" }}>
+                    <span style={{ color: "var(--accent)" }}>
                         {CATEGORY_ICONS[indicatorMeta?.category ?? ""] ?? <BarChart2 size={13} />}
                     </span>
                     {indicatorMeta?.label ?? "Carte choroplèthe"}
                 </div>
-                <span className="font-mono-data text-xs" style={{ color: "#9CA3AF" }}>
+                <span className="font-mono-data text-xs" style={{ color: "var(--text-3)" }}>
                     {formatValue(min, indicatorMeta?.unit ?? "")} – {formatValue(max, indicatorMeta?.unit ?? "")} {indicatorMeta?.unit}
                 </span>
             </div>
@@ -136,10 +136,10 @@ const ParisMaps = ({
                 {/* Légende couleur */}
                 <div
                     className="absolute bottom-4 left-4 rounded-lg px-3 py-2.5"
-                    style={{ backgroundColor: "rgba(255,255,255,0.95)", backdropFilter: "blur(4px)", border: "1px solid #E5E7EB", boxShadow: "0 2px 8px 0 #00000014" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--surface) 95%, transparent)", backdropFilter: "blur(4px)", border: "1px solid var(--border)", boxShadow: "0 2px 8px 0 #00000014" }}
                 >
                     <div className="flex items-center gap-2 text-xs">
-                        <span style={{ color: "#6B7280" }}>Faible</span>
+                        <span style={{ color: "var(--text-2)" }}>Faible</span>
                         <div className="flex gap-0.5">
                             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
                                 const color = getColorForValue(
@@ -158,10 +158,10 @@ const ParisMaps = ({
                                 );
                             })}
                         </div>
-                        <span style={{ color: "#6B7280" }}>Élevé</span>
+                        <span style={{ color: "var(--text-2)" }}>Élevé</span>
                     </div>
                     {(max - min) < 5 && indicatorMeta?.unit === "%" && (
-                        <div className="mt-1.5 text-[10px] leading-tight" style={{ color: "#9CA3AF" }}>
+                        <div className="mt-1.5 text-[10px] leading-tight" style={{ color: "var(--text-3)" }}>
                             Faible variation entre arrondissements
                         </div>
                     )}
