@@ -1,20 +1,3 @@
-"""
-api/app/routers/geo.py
--------------------------
-Expose le GeoJSON enrichi (géométries officielles des 20 arrondissements +
-tous les indicateurs Gold courants, par année pour les prix) produit par
-`aggregate/aggregate_gold.py::build_enriched_geojson`.
-
-C'est cet endpoint que consomme l'explorateur de données du frontend pour sa
-carte choroplèthe — il ferme la boucle architecture décrite dans le schéma :
-Zone Gold (GeoJSON/Parquet) -> API Backend -> Dashboard Frontend.
-
-Mode de repli : si MinIO est indisponible ou si le pipeline n'a encore jamais
-tourné, on sert la géométrie officielle de référence (sans indicateurs) plutôt
-que de renvoyer une erreur — le frontend affiche alors la carte avec des
-valeurs manquantes plutôt que de planter, cohérent avec la résilience déjà en
-place ailleurs dans le pipeline.
-"""
 import json
 from pathlib import Path
 

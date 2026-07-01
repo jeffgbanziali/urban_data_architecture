@@ -1,13 +1,3 @@
-"""
-api/app/routers/admin_users.py
----------------------------------
-Gestion des comptes utilisateurs, réservée au rôle "admin" :
-  - lister tous les comptes (clients, employés, admins) ;
-  - créer un compte employé ou admin (l'auto-inscription publique ne permet
-    de créer que des comptes client, voir routers/auth.py) ;
-  - changer le rôle d'un utilisateur ;
-  - activer/désactiver un compte (sans suppression, pour garder l'historique).
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 

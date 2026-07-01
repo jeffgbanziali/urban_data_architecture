@@ -1,11 +1,3 @@
-"""
-tests/test_geo_utils.py
---------------------------
-Valide le point-in-polygon réel (Shapely) sur les géométries officielles des
-arrondissements parisiens, avec des coordonnées de monuments connus.
-
-Lancer avec : pytest tests/test_geo_utils.py -v
-"""
 import sys
 from pathlib import Path
 

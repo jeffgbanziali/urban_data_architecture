@@ -1,10 +1,3 @@
-"""
-api/app/routers/favoris.py
------------------------------
-Gestion des favoris d'un client (biens qu'il souhaite suivre).
-Réservé au rôle "client" : un employé ou un admin n'a pas de liste de
-favoris personnelle dans ce domaine métier.
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 

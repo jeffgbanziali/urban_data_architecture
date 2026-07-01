@@ -1,11 +1,3 @@
-"""
-tests/test_aggregate.py
---------------------------
-Valide la fusion des géométries officielles avec les indicateurs Gold
-(prix par année + indicateurs socio), sans dépendre de MinIO ni de réseau.
-
-Lancer avec : pytest tests/test_aggregate.py -v
-"""
 import json
 import sys
 from pathlib import Path

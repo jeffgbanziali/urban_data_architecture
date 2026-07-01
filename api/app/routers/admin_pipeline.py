@@ -1,17 +1,3 @@
-"""
-api/app/routers/admin_pipeline.py
------------------------------------
-Endpoints d'administration du pipeline — réservés au rôle admin.
-Interrogent la table PostgreSQL `pipeline_rapports` (JSONB) pour exposer :
-  - GET /admin/rapports-qualite : runs filtrables par stage et seuil de succès
-  - GET /admin/metriques-pipeline : évolution des métriques sur les derniers runs
-
-La table pipeline_rapports remplace MongoDB :
-  - Filtres (taux_succes_pct < seuil, stage = 'bronze') → SQL WHERE standard
-  - Tri par date → ORDER BY run_started DESC
-  - Payload complet → colonne JSONB interrogeable via -> et ->>
-  - Aucun service supplémentaire — même PostgreSQL que le reste de l'application
-"""
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query

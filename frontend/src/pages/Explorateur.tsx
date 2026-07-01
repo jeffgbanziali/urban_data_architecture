@@ -47,17 +47,17 @@ interface IndicatorMeta {
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
 const INDICATORS: IndicatorMeta[] = [
-  { id: "prixM2",           label: "Prix immobilier",     unit: "€/m²",         higherIsBetter: false, color: "#dc2626", category: "logement",     hasYearDimension: true },
-  { id: "variationPct",     label: "Variation annuelle",  unit: "%",             higherIsBetter: false, color: "#f97316", category: "logement",     hasYearDimension: true },
-  { id: "population",       label: "Population",          unit: "hab",           higherIsBetter: true,  color: "#ec4899", category: "social" },
-  { id: "densitePopulation",label: "Densité",             unit: "hab/km²",       higherIsBetter: false, color: "#f59e0b", category: "social" },
-  { id: "indiceQualiteAir", label: "Qualité de l'air",    unit: "/100",          higherIsBetter: true,  color: "#7c3aed", category: "environnement" },
-  { id: "nbEspacesVerts",   label: "Espaces verts",       unit: "lieux",         higherIsBetter: true,  color: "#16a34a", category: "environnement" },
-  { id: "nbStationsMetro",  label: "Stations Métro/RER",  unit: "stations",      higherIsBetter: true,  color: "#0284c7", category: "transport" },
-  { id: "nbStationsVelib",  label: "Stations Vélib",      unit: "stations",      higherIsBetter: true,  color: "#0891b2", category: "transport" },
-  { id: "tauxCriminalite",     label: "Criminalité",          unit: "faits/1000hab", higherIsBetter: false, color: "#be123c", category: "securite" },
-  { id: "pctLogementsSociaux", label: "Logements sociaux",    unit: "%",             higherIsBetter: true,  color: "#0f766e", category: "logement" },
-  { id: "pctAppartements",     label: "Part d'appartements",  unit: "%",             higherIsBetter: true,  color: "#6366f1", category: "logement" },
+  { id: "prixM2",           label: "Prix immobilier",     unit: "€/m²",         higherIsBetter: false, color: "#8b5cf6", category: "logement",     hasYearDimension: true },
+  { id: "variationPct",     label: "Variation annuelle",  unit: "%",             higherIsBetter: false, color: "#8b5cf6", category: "logement",     hasYearDimension: true },
+  { id: "population",       label: "Population",          unit: "hab",           higherIsBetter: true,  color: "#3b82f6", category: "social" },
+  { id: "densitePopulation",label: "Densité",             unit: "hab/km²",       higherIsBetter: false, color: "#3b82f6", category: "social" },
+  { id: "indiceQualiteAir", label: "Qualité de l'air",    unit: "/100",          higherIsBetter: true,  color: "#22c55e", category: "environnement" },
+  { id: "nbEspacesVerts",   label: "Espaces verts",       unit: "lieux",         higherIsBetter: true,  color: "#22c55e", category: "environnement" },
+  { id: "nbStationsMetro",  label: "Stations Métro/RER",  unit: "stations",      higherIsBetter: true,  color: "#6366f1", category: "transport" },
+  { id: "nbStationsVelib",  label: "Stations Vélib",      unit: "stations",      higherIsBetter: true,  color: "#6366f1", category: "transport" },
+  { id: "tauxCriminalite",     label: "Criminalité",          unit: "faits/1000hab", higherIsBetter: false, color: "#ef4444", category: "securite" },
+  { id: "pctLogementsSociaux", label: "Logements sociaux",    unit: "%",             higherIsBetter: true,  color: "#8b5cf6", category: "logement" },
+  { id: "pctAppartements",     label: "Part d'appartements",  unit: "%",             higherIsBetter: true,  color: "#8b5cf6", category: "logement" },
 ];
 
 const CATEGORIES: { id: Category; label: string; icon: React.ReactNode }[] = [
@@ -102,13 +102,13 @@ function propertyKeyFor(id: IndicatorId, year: number): string {
     : `value_${field}`;
 }
 
-// Palettes multi-stops par catégorie (t=0 = pire, t=1 = meilleur)
+// Palettes multi-stops par catégorie (t=0 = valeur basse, t=1 = valeur haute)
 const PALETTES: Record<string, Array<[number, number, number]>> = {
-  logement:     [[248, 242, 228], [180, 120, 70], [28, 46, 74]],   // cream → navy
-  social:       [[245, 238, 255], [130, 85, 195], [58, 18, 118]],  // lavande → violet
-  environnement:[[213, 45, 35],  [255, 200, 45], [25, 150, 70]],   // rouge → jaune → vert
-  transport:    [[220, 248, 252], [0, 168, 190],  [0, 78, 100]],   // ciel → teal foncé
-  securite:     [[213, 45, 35],  [255, 200, 45], [25, 150, 70]],   // même RdYlGn
+  logement:     [[139,  92, 246], [251, 146,  60], [234,  88,  12]], // violet → orange
+  social:       [[ 59, 130, 246], [251, 113, 133], [239,  68,  68]], // bleu   → rouge
+  environnement:[[239,  68,  68], [250, 204,  21], [ 34, 197,  94]], // rouge  → jaune → vert
+  transport:    [[199, 210, 254], [ 99, 102, 241], [ 67,  56, 202]], // indigo clair → indigo → indigo profond
+  securite:     [[239,  68,  68], [250, 204,  21], [ 34, 197,  94]], // rouge  → jaune → vert
 };
 
 function lerpStops(stops: Array<[number, number, number]>, t: number): [number, number, number] {

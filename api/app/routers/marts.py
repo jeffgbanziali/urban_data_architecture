@@ -1,17 +1,3 @@
-"""
-api/app/routers/marts.py
---------------------------
-Endpoints publics qui exposent les data marts Gold (vues matérialisées).
-Rafraîchies après chaque run du pipeline Airflow (aggregate_gold.py).
-
-  GET /marts/marche       → mart_marche_immobilier (prix, segment, tendance)
-  GET /marts/qualite-vie  → mart_qualite_vie (population, air, espaces verts)
-  GET /marts/mobilite     → mart_mobilite (Vélib par arrondissement)
-
-Ces vues combinent les dimensions (schéma étoile) avec les données temps réel
-pour offrir une vision analytique directement consommable par le frontend ou
-des outils BI externes.
-"""
 from typing import Optional
 
 from fastapi import APIRouter, Query

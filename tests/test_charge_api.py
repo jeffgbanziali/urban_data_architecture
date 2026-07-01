@@ -1,16 +1,3 @@
-"""
-tests/test_charge_api.py
---------------------------
-Test de charge de l'API : 50 requêtes concurrentes sur /prix, /arrondissements
-et /geo/arrondissements, répétées pendant 30 secondes. Mesure latence p50/p95
-et taux d'erreur.
-
-Usage :
-    python tests/test_charge_api.py [--base-url http://localhost:8000] [--duration 30] [--concurrency 50]
-
-Nécessite httpx (pip install httpx) — pas dans les requirements car c'est un
-outil de test de charge, pas une dépendance de l'application.
-"""
 import argparse
 import asyncio
 import statistics

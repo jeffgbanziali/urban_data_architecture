@@ -1,16 +1,3 @@
-"""
-api/app/routers/realtime_ws.py
----------------------------------
-Endpoint WebSocket /ws/realtime : relaie en temps réel les événements
-(disponibilité Vélib + qualité de l'air) sans scrutation périodique.
-
-Mécanisme : le DAG Airflow realtime_stream appelle pg_notify() après chaque
-insertion. On ouvre une connexion asyncpg dédiée par client WebSocket et on
-s'abonne (LISTEN) au canal PostgreSQL — push dans la milliseconde.
-
-Limite : une connexion PostgreSQL par client WebSocket. À fort trafic un
-fan-out interne serait préférable — acceptable à cette échelle.
-"""
 import asyncio
 import os
 

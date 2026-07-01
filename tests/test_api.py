@@ -1,18 +1,3 @@
-"""
-tests/test_api.py
---------------------
-Tests d'intégration de l'API : authentification JWT, contrôle d'accès par
-rôle (client / employe / admin), CRUD des biens, favoris.
-
-Utilise une base SQLite en mémoire (StaticPool) à la place de PostgreSQL pour
-rester rapide et sans dépendance externe. Le SQL utilisé (text(), RETURNING)
-est compatible SQLite >= 3.35 et PostgreSQL ; le seul ajustement est la
-fonction `now()` (spécifique PostgreSQL), simulée ici via une fonction SQLite
-personnalisée.
-
-Lancer avec : pytest tests/test_api.py -v
-(nécessite : fastapi, httpx, sqlalchemy, bcrypt, pyjwt, psycopg2-binary)
-"""
 import datetime
 import os
 import sys

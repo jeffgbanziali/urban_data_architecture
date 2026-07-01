@@ -1,17 +1,3 @@
-"""
-tests/test_realtime_integration.py
--------------------------------------
-Test d'intégration du mécanisme de push temps réel
-(DAG Airflow → PostgreSQL NOTIFY → asyncpg LISTEN → WebSocket).
-
-Teste les deux flux réels (qualité de l'air + Vélib). Nécessite un vrai
-PostgreSQL car SQLite ne supporte pas LISTEN/NOTIFY. Automatiquement ignoré
-si aucun PostgreSQL n'est accessible.
-
-Pour le lancer :
-    docker compose up -d postgres-gold
-    POSTGRES_GOLD_HOST=localhost pytest tests/test_realtime_integration.py -v
-"""
 import asyncio
 import json
 import os

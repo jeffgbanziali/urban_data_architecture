@@ -106,11 +106,15 @@ const Sidebar_details = ({
                         </div>
 
                         {/* Indicateur principal */}
-                        <div className="bg-cream rounded-xl p-4 border border-hairline">
-                            <div className="text-ink/40 text-xs mb-1.5">{indicatorMeta?.label}</div>
-                            <div className="font-mono-data text-2xl font-bold" style={{ color: indicatorMeta?.color }}>
+                        <div className="rounded-xl p-4 border border-hairline" style={{ backgroundColor: indicatorMeta?.color + "12" }}>
+                            <div className="text-xs font-medium mb-1.5" style={{ color: indicatorMeta?.color }}>
+                                {indicatorMeta?.label}
+                            </div>
+                            <div className="font-mono-data text-2xl font-bold text-ink">
                                 {formatValue(displayData[selectedIndicator], "")}
-                                <span className="text-sm text-ink/40 ml-1 font-normal">{indicatorMeta?.unit}</span>
+                                <span className="text-sm ml-1 font-normal" style={{ color: indicatorMeta?.color + "99" }}>
+                                    {indicatorMeta?.unit}
+                                </span>
                             </div>
                         </div>
 
@@ -118,11 +122,11 @@ const Sidebar_details = ({
                         <div className="space-y-4">
                             {Object.entries(INDICATORS_BY_CATEGORY).map(([category, indicators]) => (
                                 <div key={category}>
-                                    <div className="text-ink/40 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 text-ink/55">
                                         {CATEGORY_ICONS[category]}
                                         {CATEGORY_LABELS[category] ?? category}
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="space-y-0.5">
                                         {indicators.map((ind) => {
                                             const val = displayData[ind.id as IndicatorId];
                                             const isActive = ind.id === selectedIndicator;
@@ -130,18 +134,23 @@ const Sidebar_details = ({
                                                 <div
                                                     key={ind.id}
                                                     className={`flex justify-between items-center py-1.5 px-2.5 rounded-lg text-sm transition-colors ${
-                                                        isActive
-                                                            ? "bg-cream border border-hairline"
-                                                            : "hover:bg-cream/60"
+                                                        isActive ? "border border-hairline" : "hover:bg-cream/70"
                                                     }`}
+                                                    style={isActive ? { backgroundColor: ind.color + "10", borderColor: ind.color + "30" } : {}}
                                                 >
-                                                    <span className={isActive ? "text-ink font-medium" : "text-ink/60"}>
-                                                        {ind.label}
+                                                    <span className="flex items-center gap-2">
+                                                        <span
+                                                            className="w-2 h-2 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: ind.color + (isActive ? "ff" : "66") }}
+                                                        />
+                                                        <span className={isActive ? "text-ink font-semibold" : "text-ink/75"}>
+                                                            {ind.label}
+                                                        </span>
                                                     </span>
-                                                    <span className="font-mono-data font-semibold text-ink text-xs">
+                                                    <span className="font-mono-data font-semibold text-xs text-ink">
                                                         {formatValue(val, "")}
                                                         {!Number.isNaN(val as number) && val != null && (
-                                                            <span className="text-ink/35 ml-0.5">{ind.unit}</span>
+                                                            <span className="text-ink/50 ml-0.5">{ind.unit}</span>
                                                         )}
                                                     </span>
                                                 </div>

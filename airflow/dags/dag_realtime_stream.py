@@ -1,24 +1,3 @@
-"""
-DAG : realtime_stream
-----------------------
-Système distribué temps-réel — remplace l'ancienne stack Kafka/Zookeeper.
-
-Architecture : deux tâches Airflow indépendantes s'exécutent EN PARALLÈLE
-toutes les 3 minutes via LocalExecutor (processus Python distincts) :
-
-  ┌─────────────────────────┐   ┌─────────────────────────┐
-  │  fetch_air_quality      │   │  fetch_velib             │
-  │  WAQI → PostgreSQL      │   │  OpenData Paris → PG     │
-  │  + pg_notify            │   │  + pg_notify             │
-  └─────────────────────────┘   └─────────────────────────┘
-             │                             │
-             └──────────┬──────────────────┘
-                        ▼
-              WebSocket /ws/realtime  (LISTEN/NOTIFY)
-
-Critère C2.2 : système distribué (tâches concurrentes sur processus séparés)
-utilisant un mécanisme de streaming (pg_notify → push WebSocket temps-réel).
-"""
 from datetime import datetime, timedelta
 
 from airflow import DAG

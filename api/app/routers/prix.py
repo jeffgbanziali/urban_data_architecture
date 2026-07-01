@@ -1,8 +1,3 @@
-"""
-api/app/routers/prix.py
--------------------------
-Endpoints liés aux arrondissements et aux prix au m².
-"""
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query

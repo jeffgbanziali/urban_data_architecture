@@ -1,14 +1,3 @@
-"""
-api/app/routers/auth.py
---------------------------
-Endpoints d'authentification.
-
-  - POST /auth/register : auto-inscription, réservée au rôle "client"
-    (un employé ou un administrateur est créé par un administrateur via
-    /admin/users, jamais par auto-inscription — séparation des privilèges).
-  - POST /auth/login : authentifie par email/mot de passe, retourne un JWT.
-  - GET  /auth/me : profil de l'utilisateur courant (vérifie la validité du token).
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 

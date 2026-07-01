@@ -1,13 +1,3 @@
-"""
-pipeline/bronze/realtime_fetcher.py
--------------------------------------
-Récupère les données temps-réel (WAQI, Vélib) et les persiste directement
-dans PostgreSQL Gold, puis déclenche pg_notify pour le push WebSocket.
-
-Appelé par dag_realtime_stream.py en tâches parallèles — chaque fonction
-est une unité de travail indépendante exécutée par un processus Airflow
-distinct (LocalExecutor).
-"""
 import json
 import os
 import time

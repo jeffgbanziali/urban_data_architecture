@@ -1,20 +1,3 @@
-"""
-api/app/routers/biens.py
----------------------------
-Gestion des biens immobiliers de l'agence.
-
-Règles d'accès :
-  - Lecture (GET) : publique — vitrine de l'agence.
-  - Création / modification (POST, PUT) : employé ou administrateur.
-  - Suppression (DELETE) : administrateur uniquement.
-
-Stockage semi-structuré (C1.2) :
-  - PostgreSQL conserve les champs communs structurés (titre, prix,
-    arrondissement, type_bien…) ET les caractéristiques variables dans une
-    colonne JSONB (jardin_m2, etage, ascenseur, cheminee…).
-  - JSONB offre les mêmes avantages qu'un document MongoDB (schéma flexible,
-    indexation GIN, requêtes JSONPath) sans système supplémentaire.
-"""
 import json
 import logging
 from typing import Optional

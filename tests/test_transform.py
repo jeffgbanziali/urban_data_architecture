@@ -1,15 +1,3 @@
-"""
-tests/test_transform.py
---------------------------
-Tests unitaires de la couche de nettoyage Silver. Ne nécessitent ni MinIO ni
-réseau : ils appellent directement les fonctions pures de transformation.
-
-Les fixtures sont construites au format geo-dvf réel (colonnes code_postal,
-valeur_fonciere, surface_reelle_bati, type_local) — le seul format ingéré par
-le pipeline depuis la suppression des données synthétiques.
-
-Lancer avec : pytest tests/test_transform.py -v
-"""
 import sys
 from pathlib import Path
 

@@ -1,9 +1,3 @@
-"""
-api/app/routers/comparaison.py
----------------------------------
-Endpoints de comparaison et de timeline, utilisés par le mode "comparaison
-arrondissement A vs B" et la timeline animée du dashboard.
-"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 
